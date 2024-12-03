@@ -12,9 +12,15 @@
     <ul>
         {% for photo in photos %}
             <li>{{ photo.title }} - {{ photo.description }}</li>
-        {% empty %}
-            <li>No photos available.</li>
+            {% if photo.image %}
+                <li><img src="{{ photo.image.url }}" alt="{{ photo.title }}"></li>
+                <a href="{% url 'photo' photo.id %}">Посмотреть</a>
+                <li>{{photo.author }}</li>
+            {% else %}
+                <li>No image available</li>
+            {% endif %}
         {% endfor %}
     </ul>
+
 </body>
 </html>
