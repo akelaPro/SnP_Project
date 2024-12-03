@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ photo.title }}</title>
+</head>
+<body>
+    <h1>{{ photo.title }}</h1>
+    <p>{{ photo.description }}</p>
+    <img src="{{ photo.image.url }}" alt="{{ photo.title }}">
+    <p>{{ photo.author }}</p>
+    
+    <h2>Комментарии:</h2>
+    <ul>
+    {% for comment in comments %}
+        <li>{{ comment.text }} - {{ comment.author.email }}</li> <!-- Меняем на email -->
+    {% empty %}
+        <li>Комментариев пока нет.</li> <!-- Если комментариев нет -->
+    {% endfor %}
+    </ul>
+
+    <form method="post" action="{% url 'add_comment' %}">
+        {% csrf_token %}
+        <textarea name="text" required></textarea><br>
+        <input type="hidden" name="photo_id" value="{{ photo.id }}">
+        <button type="submit">Добавить комментарий</button>
+    </form>
+</body>
+</html>
