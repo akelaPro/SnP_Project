@@ -11,6 +11,7 @@ dj-database-url = "*"
 pillow = "*"
 ipython = "*"
 django-extensions = "*"
+django-imagekit = "*"
 
 [dev-packages]
 
