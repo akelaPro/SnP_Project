@@ -78,7 +78,8 @@ class PhotoDetailView(DetailView):
         self.photo = self.object  
         context['comments'] = Comment.objects.filter(photo=self.photo)  
         context['likes_count'] = self.photo.votes.count()  
-        context['has_liked'] = self.has_liked(self.request.user, self.photo.id)  
+        context['has_liked'] = self.has_liked(self.request.user, self.photo.id) 
+        return context 
 
     def has_liked(self, user, photo_id):
         if user.is_authenticated:
