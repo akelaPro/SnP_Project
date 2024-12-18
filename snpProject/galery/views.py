@@ -21,8 +21,7 @@ class PhotoHome(ListView):
         return Photo.objects.all() 
 
 
-class CustomLogoutView(LogoutView):
-    next_page = 'home'
+
 
 
 
@@ -72,15 +71,14 @@ class AddCommentView(View):
 class PhotoDetailView(DetailView):
     model = Photo
     template_name = 'galery/photo.html'
-    context_object_name = 'photo'  # Здесь мы указываем, что объект будет доступен как 'photo'
+    context_object_name = 'photo'  
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        self.photo = self.object  # Получаем объект фотографии
-        context['comments'] = Comment.objects.filter(photo=self.photo)  # Получаем комментарии к фотографии
-        context['likes_count'] = self.photo.votes.count()  # Количество лайков
-        context['has_liked'] = self.has_liked(self.request.user, self.photo.id)  # Проверяем, лайкнул ли пользователь
-        return context
+        self.photo = self.object  
+        context['comments'] = Comment.objects.filter(photo=self.photo)  
+        context['likes_count'] = self.photo.votes.count()  
+        context['has_liked'] = self.has_liked(self.request.user, self.photo.id)  
 
     def has_liked(self, user, photo_id):
         if user.is_authenticated:
@@ -102,9 +100,9 @@ class VoteHandler:
             Vote.objects.create(author=self.user, photo=self.photo)
 
 class AddVoteView(View):
-    def post(self, request, pk):  # Измените photo_id на pk
-        photo = get_object_or_404(Photo, id=pk)  # Используйте pk здесь
-        vote_handler = VoteHandler(request.user, pk)  # Используйте pk здесь
+    def post(self, request, pk):  
+        photo = get_object_or_404(Photo, id=pk) 
+        vote_handler = VoteHandler(request.user, pk)  
 
         if vote_handler.can_vote():
             vote_handler.add_vote()
@@ -113,12 +111,12 @@ class AddVoteView(View):
 
     
 class RemoveVoteView(View):
-    def post(self, request, pk):  # Измените photo_id на pk
+    def post(self, request, pk): 
         if request.user.is_authenticated:
-            photo = get_object_or_404(Photo, id=pk)  # Используйте pk здесь
+            photo = get_object_or_404(Photo, id=pk)  
             try:
                 vote = Vote.objects.get(author=request.user, photo=photo)
                 vote.delete()
             except Vote.DoesNotExist:
                 pass 
-        return redirect('photo_detail', pk=pk)  # Используйте pk здесь
+        return redirect('photo_detail', pk=pk)

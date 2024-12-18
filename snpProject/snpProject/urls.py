@@ -19,6 +19,7 @@ from django.urls import include, path
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', include('galery.urls')),
-    path('accounts/', include('django.contrib.auth.urls')),
+    path('', include('galery.urls')),  # Ваше приложение галереи
+    path('accounts/', include('accounts.urls')),  # Подключаем URLs приложения accounts
+    path('accounts/', include('django.contrib.auth.urls')),  # Подключаем Django auth URLs
 ]

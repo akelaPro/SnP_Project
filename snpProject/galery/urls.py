@@ -12,7 +12,7 @@ urlpatterns = [
     path('photo/<int:pk>/', PhotoDetailView.as_view(), name='photo_detail'),
     path('photo/<int:pk>/add_vote/', AddVoteView.as_view(), name='add_vote'),
     path('photo/<int:pk>/remove_vote/', views.RemoveVoteView.as_view(), name='remove_vote'),
-    path('logout/', views.CustomLogoutView.as_view(), name='logout'),
+    
 ]
 
 if settings.DEBUG:

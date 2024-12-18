@@ -1,34 +1,44 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>{{ photo.title }}</title>
-</head>
-<body>
+{% extends 'base.html' %}
+
+{% block content %}
+<title>{{ photo.title }}</title>
+
+<div class="container mt-4">
     <h1>{{ photo.title }}</h1>
-    <img src="{{ photo.image.url }}" alt="{{ photo.title }}" style="width: 800px; height: 200px;">
+
+    {% if photo.image %}
+        <img src="{{ photo.image.url }}" alt="{{ photo.title }}" class="img-fluid" style="max-height: 400px; object-fit: cover;">
+    {% else %}
+        <p>Изображение недоступно.</p>
+    {% endif %}
+    
     <p>{{ photo.description }}</p>
     <p>Автор: {{ photo.author.username }}</p>
-{% if photo.author.avatar %}
-    <img src="{{ photo.author.avatar.url }}" alt="{{ photo.author.username }}" style="width: 50px; height: 50px;">
-{% else %}
-    <img src="{{ default_image }}" alt="Default Avatar" style="width: 50px; height: 50px;">
-{% endif %}
+    
+    {% if photo.author.avatar %}
+        <img src="{{ photo.author.avatar.url }}" alt="{{ photo.author.username }}" class="rounded-circle" style="width: 50px; height: 50px;">
+    {% else %}
+        <img src="{{ default_image }}" alt="Default Avatar" class="rounded-circle" style="width: 50px; height: 50px;">
+    {% endif %}
 
     <h3>Комментарии:</h3>
-    <ul>
+    <ul class="list-unstyled">
         {% for comment in comments %}
-            <li>{{ comment.text }} - {{ comment.author.username }}</li>
+            <li class="mb-2">
+                <strong>{{ comment.author.username }}:</strong> {{ comment.text }}
+            </li>
         {% empty %}
             <li>Комментариев пока нет.</li>
         {% endfor %}
     </ul>
 
     {% if user.is_authenticated %}
-        <form action="{% url 'add_comment' photo.id %}" method="post">
+        <form action="{% url 'add_comment' photo.id %}" method="post" class="mb-4">
             {% csrf_token %}
-            <textarea name="text" required placeholder="Добавьте комментарий..."></textarea>
-            <button type="submit">Добавить комментарий</button>
+            <div class="form-group">
+                <textarea name="text" class="form-control" required placeholder="Добавьте комментарий..."></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Добавить комментарий</button>
         </form>
     {% else %}
         <p>Чтобы добавить комментарий, вам нужно <a href="{% url 'login' %}">войти</a>.</p>
@@ -37,20 +47,20 @@
     <h3>Лайки: {{ photo.votes.count }}</h3>
 
     {% if user.is_authenticated %}
-    {% if has_liked %}
-        <form action="{% url 'remove_vote' photo.pk %}" method="post" class="remove-like-form">
-            {% csrf_token %}
-            <button type="submit" class="remove-like-button">Убрать лайк</button>
-        </form>
+        {% if has_liked %}
+            <form action="{% url 'remove_vote' photo.pk %}" method="post" class="remove-like-form">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">Убрать лайк</button>
+            </form>
+        {% else %}
+            <form action="{% url 'add_vote' photo.pk %}" method="post" class="like-form">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success">Лайк</button>
+            </form>
+        {% endif %}
     {% else %}
-        <form action="{% url 'add_vote' photo.pk %}" method="post" class="like-form">
-            {% csrf_token %}
-            <button type="submit" class="like-button">Лайк</button>
-        </form>
+        <p>Чтобы поставить лайк, вам нужно <a href="{% url 'login' %}">войти</a>.</p>
     {% endif %}
-{% else %}
-    <p>Чтобы поставить лайк, вам нужно <a href="{% url 'login' %}">войти</a>.</p>
-{% endif %}
+</div>
 
-</body>
-</html>
+{% endblock %}
