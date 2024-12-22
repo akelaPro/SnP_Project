@@ -7,24 +7,29 @@ from imagekit.processors import ResizeToFill
 
 
 class Photo(models.Model):
-    title = models.CharField(max_length=255)
-    description = models.TextField()
-    image = models.ImageField(upload_to='photos/%Y/%m/%d/', default=None, blank=True, null=True)  
-    published_at = models.DateTimeField(auto_now_add=True)
-    author = models.ForeignKey('galery.User', on_delete=models.SET_NULL, null=True, related_name='photos')
+    title = models.CharField(max_length=255, verbose_name='Заголовок')
+    description = models.TextField(verbose_name='Описание')
+    image = models.ImageField(upload_to='photos/%Y/%m/%d/', default=None, blank=True, null=True, verbose_name='Фотография')  
+    published_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата публикации')
+    author = models.ForeignKey('galery.User', on_delete=models.SET_NULL, null=True, related_name='photos' , verbose_name='Автор')
 
     def get_absolute_url(self):
         return reverse('photo_detail', kwargs={'pk': self.pk})
 
     def __str__(self):
         return self.title
+    
+    class Meta:
+        verbose_name = 'Фотография'
+        verbose_name_plural = 'Фотографии'
 
 
 class User(AbstractUser):
     email = models.EmailField(unique=True)
     password = models.CharField(max_length=128)
-    created_at = models.DateTimeField(auto_now_add=True)
-    avatar = models.ImageField(upload_to='avatars/', default='avatars/default_avatar.png', blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата публикации')
+    avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True)
     
 
     avatar_thumbnail = ImageSpecField(source='avatar',
@@ -36,12 +41,15 @@ class User(AbstractUser):
     def __str__(self):
         return self.email
 
+    class Meta:
+        verbose_name = 'Пользователь'
+        verbose_name_plural = 'Пользователи'
 
 
 
 class Vote(models.Model):
-    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='votes')
-    photo = models.ForeignKey(Photo, on_delete=models.CASCADE, related_name='votes')
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='votes', verbose_name='Автор')
+    photo = models.ForeignKey(Photo, on_delete=models.CASCADE, related_name='votes', verbose_name='Фотография')
 
 
     class Meta:
@@ -49,13 +57,22 @@ class Vote(models.Model):
 
     def __str__(self):
         return f"{self.author.email} voted for {self.photo.title}"
+    
 
+    class Meta:
+        verbose_name = 'Лайк'
+        verbose_name_plural = 'Лайки'
 
 class Comment(models.Model):
-    text = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='comments')
-    photo = models.ForeignKey(Photo, on_delete=models.CASCADE, related_name='comments')
+    text = models.TextField(verbose_name='Текст')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата публикации')
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='comments', verbose_name='Автор')
+    photo = models.ForeignKey(Photo, on_delete=models.CASCADE, related_name='comments', verbose_name='Фото')
 
     def __str__(self):
         return f"Comment by {self.author.email} on {self.photo.title}"
+    
+
+    class Meta:
+        verbose_name = 'Коментарий'
+        verbose_name_plural = 'Коментарии'

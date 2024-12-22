@@ -1,16 +1,10 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Добавление фотографии</title>
-</head>
-<body>
-    <h1>{{ title_page }}</h1>
-    <form method="post" enctype="multipart/form-data">  
-        {% csrf_token %}
-        {{ form.as_p }}  
-        <button type="submit">Добавить фотографию</button>
-    </form>
-    <a href="{% url 'home' %}">Назад на главную</a>
-</body>
-</html>
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>Добавить новый пост</h1>
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Добавить пост</button>
+</form>
+{% endblock %}

@@ -1,7 +1,7 @@
 import os
 from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
+from django.urls import reverse, reverse_lazy
 from django.views import View
 
 from snpProject import settings
@@ -12,28 +12,24 @@ from django.contrib.auth.views import LogoutView
 from django.views.generic import TemplateView, ListView, DetailView, FormView, CreateView, UpdateView
 
 
+
 class PhotoHome(ListView):
     model = Photo
     template_name = 'galery/index.html'
     context_object_name = 'photos'
-    extra_conext = {'default_image': settings.DEFAULT_USER_IMAGE,}
+
     def get_queryset(self):
         return Photo.objects.all() 
 
 
 
-
-
-
-
-class AddPage(CreateView):
+class AddPostView(CreateView):
+    model = Photo
     form_class = AddPostForm
     template_name = 'galery/add_post.html'
-    title_page = 'Добавление статьи'
-
+    success_url = reverse_lazy('galery:home') 
     def form_valid(self, form):
-        w = form.save(commit=False)
-        w.author = self.request.user
+        form.instance.author = self.request.user  
         return super().form_valid(form)
 
 
@@ -62,9 +58,9 @@ class AddCommentView(View):
         
         if request.user.is_authenticated:
             Comment.objects.create(text=comment_text, author=request.user, photo=photo)
-            return HttpResponseRedirect(reverse('photo_detail', args=[photo_id]))
+            return HttpResponseRedirect(reverse('galery:photo_detail', args=[photo_id]))
         else:
-            return HttpResponseRedirect(reverse('login'))
+            return HttpResponseRedirect(reverse('accounts:login'))
 
 
 
@@ -108,7 +104,7 @@ class AddVoteView(View):
         if vote_handler.can_vote():
             vote_handler.add_vote()
 
-        return redirect(reverse('photo_detail', kwargs={'pk': photo.id}))
+        return redirect(reverse('galery:photo_detail', kwargs={'pk': photo.id}))
 
     
 class RemoveVoteView(View):
@@ -120,4 +116,4 @@ class RemoveVoteView(View):
                 vote.delete()
             except Vote.DoesNotExist:
                 pass 
-        return redirect('photo_detail', pk=pk)
+        return redirect('galery:photo_detail', pk=pk)

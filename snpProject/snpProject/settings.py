@@ -141,7 +141,7 @@ AUTH_USER_MODEL = 'galery.User'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-DEFAULT_USER_IMAGE = MEDIA_URL + 'users/default.png'
+DEFAULT_USER_IMAGE = MEDIA_URL + 'avatars/default_avatar/default_avatar.png'
 
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = 'home'
@@ -168,3 +168,9 @@ DJOSER = {
         'user': 'accounts.serializers.Serializer',  # Исправлено
     },
 }
+
+
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'accounts.authentication.EmailAuthBackend',
+]

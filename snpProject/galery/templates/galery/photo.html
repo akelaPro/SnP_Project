@@ -33,7 +33,7 @@
     </ul>
 
     {% if user.is_authenticated %}
-        <form action="{% url 'add_comment' photo.id %}" method="post" class="mb-4">
+        <form action="{% url 'galery:add_comment' photo.id %}" method="post" class="mb-4">
             {% csrf_token %}
             <div class="form-group">
                 <textarea name="text" class="form-control" required placeholder="Добавьте комментарий..."></textarea>
@@ -48,12 +48,12 @@
 
     {% if user.is_authenticated %}
         {% if has_liked %}
-            <form action="{% url 'remove_vote' photo.pk %}" method="post" class="remove-like-form">
+            <form action="{% url 'galery:remove_vote' photo.pk %}" method="post" class="remove-like-form">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-danger">Убрать лайк</button>
             </form>
         {% else %}
-            <form action="{% url 'add_vote' photo.pk %}" method="post" class="like-form">
+            <form action="{% url 'galery:add_vote' photo.pk %}" method="post" class="like-form">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-success">Лайк</button>
             </form>

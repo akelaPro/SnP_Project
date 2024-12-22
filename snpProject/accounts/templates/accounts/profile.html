@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>Профиль</h1>
+
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {% if user.avatar %}
+    <img src="{{ user.avatar.url }}?{{ user.avatar.updated_at.timestamp }}" alt="Аватар пользователя" class="rounded-circle" style="width: 100px; height: 100px;">
+{% else %}
+    <img src="{{ default_image }}" alt="Дефолтный аватар" class="rounded-circle" style="width: 100px; height: 100px;">
+{% endif %}
+    
+    <div class="form-error">{{ form.non_field_errors }}</div>
+    {% for f in form %}
+        <p><label class="form-label" for="{{ f.id_for_label }}">{{ f.label }}: </label>{{ f }}</p>
+        <div>{{ f.errors }}</div>
+    {% endfor %}
+
+    <p><button type="submit">Сохранить</button></p>
+</form>
+
+<h2>Управление постами</h2>
+<ul>
+    <li><a href="{% url 'galery:add_post' %}">Добавить новый пост</a></li>
+</ul>
+
+
+{% endblock %}

@@ -5,7 +5,7 @@
         {% for photo in photos %}
         <div class="col-md-4 mb-4">
             <div class="card">
-                <a href="{% url 'photo_detail' photo.id %}">
+                <a href="{% url 'galery:photo_detail' photo.id %}">
                     {% if photo.image %}
                         <img src="{{ photo.image.url }}" alt="{{ photo.title }}" class="card-img-top" style="height: 200px; object-fit: cover;">
                     {% else %}
