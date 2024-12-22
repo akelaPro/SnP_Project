@@ -1,26 +1,32 @@
-<!-- galery/index.html -->
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Photo Gallery</title>
-</head>
-<body>
-    <h1>Photo Gallery</h1>
-
-    <h1>{{ photo.image }}</h1>
-    <ul>
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+    <div class="row">
         {% for photo in photos %}
-            <li>{{ photo.title }} - {{ photo.description }}</li>
-            {% if photo.image %}
-                <li><img src="{{ photo.image.url }}" alt="{{ photo.title }}"></li>
-                <a href="{% url 'photo' photo.id %}">Посмотреть</a>
-                <li>{{photo.author }}</li>
-            {% else %}
-                <li>No image available</li>
-            {% endif %}
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <a href="{% url 'galery:photo_detail' photo.id %}">
+                    {% if photo.image %}
+                        <img src="{{ photo.image.url }}" alt="{{ photo.title }}" class="card-img-top" style="height: 200px; object-fit: cover;">
+                    {% else %}
+                        <img src="{{ default_image }}" alt="No image available" class="card-img-top" style="height: 200px; object-fit: cover;">
+                    {% endif %}
+                </a>
+                <div class="card-body">
+                    <h5 class="card-title">{{ photo.title }}</h5>
+                    <p class="card-text">{{ photo.description }}</p>
+                    <div class="d-flex align-items-center">
+                        {% if photo.author.avatar %}
+                            <img src="{{ photo.author.avatar.url }}" alt="{{ photo.author.username }}" class="rounded-circle" style="width: 50px; height: 50px; margin-right: 10px;">
+                        {% else %}
+                            <img src="{{ default_image }}" alt="Default Avatar" class="rounded-circle" style="width: 50px; height: 50px; margin-right: 10px;">
+                        {% endif %}
+                        <span>{{ photo.author.username }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
         {% endfor %}
-    </ul>
-
-</body>
-</html>
+    </div>
+</div>
+{% endblock %}

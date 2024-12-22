@@ -1,6 +1,10 @@
-<h1>{{title}}</h1>
-<form action="" method="post" enctype="multipart/form-data">
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>Добавить новый пост</h1>
+<form method="post" enctype="multipart/form-data">
     {% csrf_token %}
     {{ form.as_p }}
-    <p><button type="submit">Отправить</button></p>
+    <button type="submit">Добавить пост</button>
 </form>
+{% endblock %}

@@ -1,28 +1,66 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>{{ photo.title }}</title>
-</head>
-<body>
+{% extends 'base.html' %}
+
+{% block content %}
+<title>{{ photo.title }}</title>
+
+<div class="container mt-4">
     <h1>{{ photo.title }}</h1>
-    <p>{{ photo.description }}</p>
-    <img src="{{ photo.image.url }}" alt="{{ photo.title }}">
-    <p>{{ photo.author }}</p>
+
+    {% if photo.image %}
+        <img src="{{ photo.image.url }}" alt="{{ photo.title }}" class="img-fluid" style="max-height: 400px; object-fit: cover;">
+    {% else %}
+        <p>Изображение недоступно.</p>
+    {% endif %}
     
-    <h2>Комментарии:</h2>
-    <ul>
-    {% for comment in comments %}
-        <li>{{ comment.text }} - {{ comment.author.email }}</li> <!-- Меняем на email -->
-    {% empty %}
-        <li>Комментариев пока нет.</li> <!-- Если комментариев нет -->
-    {% endfor %}
+    <p>{{ photo.description }}</p>
+    <p>Автор: {{ photo.author.username }}</p>
+    
+    {% if photo.author.avatar %}
+        <img src="{{ photo.author.avatar.url }}" alt="{{ photo.author.username }}" class="rounded-circle" style="width: 50px; height: 50px;">
+    {% else %}
+        <img src="{{ default_image }}" alt="Default Avatar" class="rounded-circle" style="width: 50px; height: 50px;">
+    {% endif %}
+
+    <h3>Комментарии:</h3>
+    <ul class="list-unstyled">
+        {% for comment in comments %}
+            <li class="mb-2">
+                <strong>{{ comment.author.username }}:</strong> {{ comment.text }}
+            </li>
+        {% empty %}
+            <li>Комментариев пока нет.</li>
+        {% endfor %}
     </ul>
 
-    <form method="post" action="{% url 'add_comment' %}">
-        {% csrf_token %}
-        <textarea name="text" required></textarea><br>
-        <input type="hidden" name="photo_id" value="{{ photo.id }}">
-        <button type="submit">Добавить комментарий</button>
-    </form>
-</body>
-</html>
+    {% if user.is_authenticated %}
+        <form action="{% url 'galery:add_comment' photo.id %}" method="post" class="mb-4">
+            {% csrf_token %}
+            <div class="form-group">
+                <textarea name="text" class="form-control" required placeholder="Добавьте комментарий..."></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Добавить комментарий</button>
+        </form>
+    {% else %}
+        <p>Чтобы добавить комментарий, вам нужно <a href="{% url 'login' %}">войти</a>.</p>
+    {% endif %}
+    
+    <h3>Лайки: {{ photo.votes.count }}</h3>
+
+    {% if user.is_authenticated %}
+        {% if has_liked %}
+            <form action="{% url 'galery:remove_vote' photo.pk %}" method="post" class="remove-like-form">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">Убрать лайк</button>
+            </form>
+        {% else %}
+            <form action="{% url 'galery:add_vote' photo.pk %}" method="post" class="like-form">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success">Лайк</button>
+            </form>
+        {% endif %}
+    {% else %}
+        <p>Чтобы поставить лайк, вам нужно <a href="{% url 'login' %}">войти</a>.</p>
+    {% endif %}
+</div>
+
+{% endblock %}
