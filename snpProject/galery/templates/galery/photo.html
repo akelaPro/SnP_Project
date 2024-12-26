@@ -22,9 +22,9 @@
     {% endif %}
 
     <h3>Комментарии:</h3>
-    <ul class="list-unstyled">
+    <ul class="list-unstyled" id="comments-list">
         {% for comment in comments %}
-            <li class="mb-2">
+            <li class="mb-2" data-comment-id="{{ comment.id }}">
                 <strong>{{ comment.author.username }}:</strong> {{ comment.text }}
             </li>
         {% empty %}
@@ -33,7 +33,7 @@
     </ul>
 
     {% if user.is_authenticated %}
-        <form action="{% url 'galery:add_comment' photo.id %}" method="post" class="mb-4">
+        <form id="comment-form" class="mb-4">
             {% csrf_token %}
             <div class="form-group">
                 <textarea name="text" class="form-control" required placeholder="Добавьте комментарий..."></textarea>
@@ -44,23 +44,99 @@
         <p>Чтобы добавить комментарий, вам нужно <a href="{% url 'login' %}">войти</a>.</p>
     {% endif %}
     
-    <h3>Лайки: {{ photo.votes.count }}</h3>
+    <h3 id="likes-count">Лайки: {{ photo.votes.count }}</h3>
 
     {% if user.is_authenticated %}
         {% if has_liked %}
-            <form action="{% url 'galery:remove_vote' photo.pk %}" method="post" class="remove-like-form">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-danger">Убрать лайк</button>
-            </form>
+            <button class="remove-like-button btn btn-danger" data-photo-id="{{ photo.pk }}">Убрать лайк</button>
         {% else %}
-            <form action="{% url 'galery:add_vote' photo.pk %}" method="post" class="like-form">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-success">Лайк</button>
-            </form>
+            <button class="like-button btn btn-success" data-photo-id="{{ photo.pk }}">Лайк</button>
         {% endif %}
     {% else %}
         <p>Чтобы поставить лайк, вам нужно <a href="{% url 'login' %}">войти</a>.</p>
     {% endif %}
 </div>
 
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    $(document).ready(function() {
+        // Установка CSRF-токена для всех AJAX-запросов
+        $.ajaxSetup({
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}' // Используем CSRF-токен из шаблона
+            }
+        });
+
+        // AJAX для добавления комментария
+        $('#comment-form').submit(function(event) {
+            event.preventDefault(); // Предотвратить обычное отправление формы
+
+            $.ajax({
+                url: '{% url "galery:add_comment" photo.id %}', // URL для отправки
+                type: 'POST',
+                data: $(this).serialize(), // Собрать данные формы
+                success: function(response) {
+                    if (response.success) {
+                        // Добавить новый комментарий в список
+                        $('#comments-list').append('<li class="mb-2"><strong>' + response.comment.author + ':</strong> ' + response.comment.text + '</li>');
+                        $('#comment-form textarea').val(''); // Очистить поле ввода
+                    } else {
+                        alert(response.error); // Обработать ошибку
+                    }
+                },
+                error: function(xhr, status, error) {
+                    alert('Произошла ошибка: ' + error);
+                }
+            });
+        });
+
+        // AJAX для добавления лайка
+        $(document).on('click', '.like-button', function(event) {
+            event.preventDefault(); // Предотвратить обычное отправление формы
+
+            var button = $(this);
+            var photoId = button.data('photo-id'); // Получить ID фото
+
+            $.ajax({
+                url: '/photo/' + photoId + '/add_vote/', // URL для отправки
+                type: 'POST',
+                success: function(response) {
+                    if (response.success) {
+                        $('#likes-count').text('Лайки: ' + response.likes_count); // Обновить счетчик лайков
+                        button.replaceWith('<button class="remove-like-button btn btn-danger" data-photo-id="' + photoId + '">Убрать лайк</button>'); // Заменить кнопку
+                    } else {
+                        alert(response.error); // Обработать ошибку
+                    }
+                },
+                error: function(xhr, status, error) {
+                    alert('Произошла ошибка: ' + error);
+                }
+            });
+        });
+
+        // AJAX для удаления лайка
+        $(document).on('click', '.remove-like-button', function(event) {
+            event.preventDefault(); // Предотвратить обычное отправление формы
+
+            var button = $(this);
+            var photoId = button.data('photo-id'); // Получить ID фото
+
+            $.ajax({
+                url: '/photo/' + photoId + '/remove_vote/', // URL для отправки
+                type: 'POST',
+                success: function(response) {
+                    if (response.success) {
+                        $('#likes-count').text('Лайки: ' + response.likes_count); // Обновить счетчик лайков
+                        button.replaceWith('<button class="like-button btn btn-success" data-photo-id="' + photoId + '">Лайк</button>'); // Заменить кнопку
+                    } else {
+                        alert(response.error); // Обработать ошибку
+                    }
+                },
+                error: function(xhr, status, error) {
+                    alert('Произошла ошибка: ' + error);
+                }
+            });
+        });
+    });
+</script>
 {% endblock %}

@@ -1,29 +1,74 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<h1>Профиль</h1>
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Профиль</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        {% if user.avatar %}
+                            <img src="{{ user.avatar.url }}?{{ user.avatar.updated_at.timestamp }}" alt="Аватар пользователя" class="img-fluid rounded-circle mb-3" style="width: 100px; height: 100px;">
+                        {% else %}
+                            <img src="{{ default_image }}" alt="Дефолтный аватар" class="img-fluid rounded-circle mb-3" style="width: 100px; height: 100px;">
+                        {% endif %}
+                        
+                        <div class="form-error">{{ form.non_field_errors }}</div>
+                        {% for f in form %}
+                            <div class="form-group">
+                                <label for="{{ f.id_for_label }}">{{ f.label }}</label>
+                                {{ f }}
+                                <div class="text-danger">{{ f.errors }}</div>
+                            </div>
+                        {% endfor %}
+                        <button type="submit" class="btn btn-primary">Сохранить</button>
+                    </form>
+                </div>
+            </div>
 
-<form method="post" enctype="multipart/form-data">
-    {% csrf_token %}
-    {% if user.avatar %}
-    <img src="{{ user.avatar.url }}?{{ user.avatar.updated_at.timestamp }}" alt="Аватар пользователя" class="rounded-circle" style="width: 100px; height: 100px;">
-{% else %}
-    <img src="{{ default_image }}" alt="Дефолтный аватар" class="rounded-circle" style="width: 100px; height: 100px;">
-{% endif %}
-    
-    <div class="form-error">{{ form.non_field_errors }}</div>
-    {% for f in form %}
-        <p><label class="form-label" for="{{ f.id_for_label }}">{{ f.label }}: </label>{{ f }}</p>
-        <div>{{ f.errors }}</div>
-    {% endfor %}
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5>Управление постами</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group">
+                        <li class="list-group-item"><a href="{% url 'galery:add_post' %}">Добавить новый пост</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
 
-    <p><button type="submit">Сохранить</button></p>
-</form>
-
-<h2>Управление постами</h2>
-<ul>
-    <li><a href="{% url 'galery:add_post' %}">Добавить новый пост</a></li>
-</ul>
-
-
+        <div class="col-md-8">
+            <h2>Мои фотографии</h2>
+            <div class="row">
+                {% for photo in photos %}
+                    <div class="col-md-4 mb-4">
+                        <div class="card">
+                            <a href="{% url 'galery:photo_detail' photo.id %}">  <!-- Ссылка на страницу с детальным отображением фотографии -->
+                                {% if photo.image %}
+                                    <img src="{{ photo.image.url }}" alt="{{ photo.title }}" class="card-img-top" style="max-height: 200px; object-fit: cover;">
+                                {% else %}
+                                    <img src="{{ default_photo }}" alt="Дефолтное изображение" class="card-img-top" style="max-height: 200px; object-fit: cover;">
+                                {% endif %}
+                            </a>
+                            <div class="card-body">
+                                <h5 class="card-title">{{ photo.title }}</h5>
+                                <p class="card-text">{{ photo.description }}</p>
+                                <p class="text-muted">Дата публикации: {{ photo.published_at }}</p>
+                            </div>
+                        </div>
+                    </div>
+                {% empty %}
+                    <div class="col-12">
+                        <p>У вас пока нет фотографий.</p>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

@@ -3,8 +3,10 @@ from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.views import View
+from django.db.models import Count
 
 from snpProject import settings
+from django.db.models import Q
 from .models import Photo, Comment, Vote
 from .forms import AddPostForm, UploadFileForm
 from django.contrib.auth.decorators import login_required
@@ -19,9 +21,34 @@ class PhotoHome(ListView):
     context_object_name = 'photos'
 
     def get_queryset(self):
-        return Photo.objects.all() 
+        queryset = Photo.objects.all()
+    
 
+        search_query = self.request.GET.get('search', '')
+        if search_query:
+            queryset = queryset.filter(
+                Q(title__icontains=search_query) | 
+                Q(description__icontains=search_query) | 
+                Q(author__username__icontains=search_query)
+            )
 
+        
+    
+
+        sort_option = self.request.GET.get('sort', '')  
+        if sort_option == 'votes':
+            queryset = queryset.annotate(vote_count=Count('votes')).order_by('-vote_count')
+        elif sort_option == 'date':
+            queryset = queryset.order_by('-published_at')  
+        elif sort_option == 'comments':
+            queryset = queryset.annotate(comment_count=Count('comments')).order_by('-comment_count')
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['default_photo'] = settings.DEFAULT_PHOTO_IMAGE  
+        return context
 
 class AddPostView(CreateView):
     model = Photo
@@ -51,17 +78,25 @@ class PhotoComment(ListView):
         return Comment.objects.filter(photo__id=self.kwargs['author_comment_id'])
 
 
+
+
 class AddCommentView(View):
     def post(self, request, photo_id):
         photo = get_object_or_404(Photo, id=photo_id)
         comment_text = request.POST.get('text')
         
         if request.user.is_authenticated:
-            Comment.objects.create(text=comment_text, author=request.user, photo=photo)
-            return HttpResponseRedirect(reverse('galery:photo_detail', args=[photo_id]))
+            comment = Comment.objects.create(text=comment_text, author=request.user, photo=photo)
+            return JsonResponse({
+                'success': True,
+                'comment': {
+                    'author': comment.author.username,
+                    'text': comment.text,
+                    'created_at': comment.created_at.strftime("%Y-%m-%d %H:%M:%S") 
+                }
+            })
         else:
-            return HttpResponseRedirect(reverse('accounts:login'))
-
+            return JsonResponse({'success': False, 'error': 'Пользователь не авторизован'})
 
 
 class PhotoDetailView(DetailView):
@@ -96,24 +131,30 @@ class VoteHandler:
         if self.can_vote():
             Vote.objects.create(author=self.user, photo=self.photo)
 
+
+
+
 class AddVoteView(View):
-    def post(self, request, pk):  
-        photo = get_object_or_404(Photo, id=pk) 
-        vote_handler = VoteHandler(request.user, pk)  
-
-        if vote_handler.can_vote():
-            vote_handler.add_vote()
-
-        return redirect(reverse('galery:photo_detail', kwargs={'pk': photo.id}))
-
-    
-class RemoveVoteView(View):
-    def post(self, request, pk): 
+    def post(self, request, photo_id):
+        photo = get_object_or_404(Photo, id=photo_id)
         if request.user.is_authenticated:
-            photo = get_object_or_404(Photo, id=pk)  
+            
+            if not Vote.objects.filter(author=request.user, photo=photo).exists():
+                Vote.objects.create(author=request.user, photo=photo)  
+                return JsonResponse({'success': True, 'likes_count': photo.votes.count()})
+            else:
+                return JsonResponse({'success': False, 'error': 'Вы уже проголосовали.'})
+        return JsonResponse({'success': False, 'error': 'Пользователь не авторизован'})
+
+class RemoveVoteView(View):
+    def post(self, request, photo_id):
+        photo = get_object_or_404(Photo, id=photo_id)
+        if request.user.is_authenticated:
             try:
+
                 vote = Vote.objects.get(author=request.user, photo=photo)
                 vote.delete()
+                return JsonResponse({'success': True, 'likes_count': photo.votes.count()})
             except Vote.DoesNotExist:
-                pass 
-        return redirect('galery:photo_detail', pk=pk)
+                return JsonResponse({'success': False, 'error': 'Голос не найден.'})
+        return JsonResponse({'success': False, 'error': 'Пользователь не авторизован'})

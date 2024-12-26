@@ -9,7 +9,7 @@
                     {% if photo.image %}
                         <img src="{{ photo.image.url }}" alt="{{ photo.title }}" class="card-img-top" style="height: 200px; object-fit: cover;">
                     {% else %}
-                        <img src="{{ default_image }}" alt="No image available" class="card-img-top" style="height: 200px; object-fit: cover;">
+                        <img src="{{ default_photo }}" alt="No image available" class="card-img-top" style="height: 200px; object-fit: cover;">
                     {% endif %}
                 </a>
                 <div class="card-body">

@@ -34,22 +34,17 @@ class UserRegistrationView(View):
 
 class UserLoginView(LoginView):
     template_name = 'accounts/login.html'  
-    success_url = reverse_lazy('home')
+    success_url = reverse_lazy('galery:home')
 
 
 class UserProfile(UpdateView):
     model = get_user_model()
     form_class = USerProfileForm
     template_name = 'accounts/profile.html'
-    extra_context = {
-        'title': "Профиль пользователя",
-        'default_image': settings.DEFAULT_USER_IMAGE,
-        'add_post_form': AddPostForm(),
-    }
+    
 
     def get_success_url(self):
-        return reverse_lazy('galery:home')  # Перенаправление на главную страницу
-
+        return reverse_lazy('galery:home')  
     def get_object(self, queryset=None):
         return self.request.user
 
@@ -58,19 +53,17 @@ class UserProfile(UpdateView):
         user.save()
         return super().form_valid(form)
 
-    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['photos'] = self.request.user.photos.all()
+        return context
 
-    
-
-
-class AddPostView(UpdateView):
-    model = Photo
-    form_class = AddPostForm
-    template_name = 'galery/add_post.html'
-    success_url = reverse_lazy('galery:home') 
-
-    def form_valid(self, form):
-        form.instance.author = self.request.user  # Установите автора поста
-        return super().form_valid(form)
-    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['photos'] = self.request.user.photos.all() 
+        context['title'] = "Профиль пользователя"
+        context['default_image'] = settings.DEFAULT_USER_IMAGE
+        context['default_photo'] = settings.DEFAULT_PHOTO_IMAGE
+        context['add_post_form'] = AddPostForm()
+        return context
 

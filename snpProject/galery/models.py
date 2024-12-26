@@ -6,6 +6,7 @@ from imagekit.models import ImageSpecField
 from imagekit.processors import ResizeToFill
 
 
+
 class Photo(models.Model):
     title = models.CharField(max_length=255, verbose_name='Заголовок')
     description = models.TextField(verbose_name='Описание')
