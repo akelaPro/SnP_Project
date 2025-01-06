@@ -1,3 +1,4 @@
+from datetime import timezone
 import os
 from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -7,7 +8,9 @@ from django.db.models import Count
 
 from snpProject import settings
 from django.db.models import Q
-from .models import Photo, Comment, Vote
+
+from galery.flow import PhotoModerationFlow
+from .models import Photo, Comment, PhotoModerationProcess, Vote
 from .forms import AddPostForm, UploadFileForm
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LogoutView
@@ -21,7 +24,8 @@ class PhotoHome(ListView):
     context_object_name = 'photos'
 
     def get_queryset(self):
-        queryset = Photo.objects.all()
+        approved_photos = PhotoModerationProcess.objects.filter(approved=True).values_list('photo_id', flat=True)
+        queryset = Photo.objects.filter(id__in=approved_photos)
     
 
         search_query = self.request.GET.get('search', '')
@@ -54,9 +58,12 @@ class AddPostView(CreateView):
     model = Photo
     form_class = AddPostForm
     template_name = 'galery/add_post.html'
-    success_url = reverse_lazy('galery:home') 
+    success_url = reverse_lazy('galery:home')
+
     def form_valid(self, form):
-        form.instance.author = self.request.user  
+        form.instance.author = self.request.user
+        photo = form.save()
+        process = PhotoModerationProcess.objects.create(photo=photo)  
         return super().form_valid(form)
 
 
@@ -102,7 +109,8 @@ class AddCommentView(View):
 class PhotoDetailView(DetailView):
     model = Photo
     template_name = 'galery/photo.html'
-    context_object_name = 'photo'  
+    context_object_name = 'photo'
+    pk_url_kwarg = 'photo_id'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -158,3 +166,30 @@ class RemoveVoteView(View):
             except Vote.DoesNotExist:
                 return JsonResponse({'success': False, 'error': 'Голос не найден.'})
         return JsonResponse({'success': False, 'error': 'Пользователь не авторизован'})
+
+
+
+
+class CreatePhotoModerationView(View):
+    def post(self, request, photo_id):
+        photo = get_object_or_404(Photo, id=photo_id)
+        process = PhotoModerationProcess.objects.create(photo=photo)  
+
+        return redirect('viewflow:photo_moderation_process', process.pk)
+    
+
+class DeletePhotoView(View):
+    def post(self, request, photo_id):
+        photo = get_object_or_404(Photo, id=photo_id)
+        photo.deleted_at = timezone.now()
+        photo.save()
+        return JsonResponse({'success': True})
+
+class RestorePhotoView(View):
+    def post(self, request, photo_id):
+        photo = get_object_or_404(Photo, id=photo_id)
+        if photo.deleted_at and (timezone.now() - photo.deleted_at).days < 1:
+            photo.deleted_at = None
+            photo.save()
+            return JsonResponse({'success': True})
+        return JsonResponse({'success': False, 'error': 'Срок восстановления истек.'})

@@ -4,15 +4,20 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 from imagekit.models import ImageSpecField
 from imagekit.processors import ResizeToFill
+from viewflow.workflow.models import Process
+from snpProject import settings
 
 
 
 class Photo(models.Model):
+
     title = models.CharField(max_length=255, verbose_name='Заголовок')
     description = models.TextField(verbose_name='Описание')
     image = models.ImageField(upload_to='photos/%Y/%m/%d/', default=None, blank=True, null=True, verbose_name='Фотография')  
     published_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата публикации')
-    author = models.ForeignKey('galery.User', on_delete=models.SET_NULL, null=True, related_name='photos' , verbose_name='Автор')
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=4, related_name='photos')
+    deleted_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата удаления')
+
 
     def get_absolute_url(self):
         return reverse('photo_detail', kwargs={'pk': self.pk})
@@ -23,6 +28,20 @@ class Photo(models.Model):
     class Meta:
         verbose_name = 'Фотография'
         verbose_name_plural = 'Фотографии'
+
+
+class PhotoModerationProcess(Process):
+    photo = models.OneToOneField('Photo', on_delete=models.CASCADE, null=False)  # Обновлено с null=True на null=False
+    approved = models.BooleanField(default=False)
+    rejected = models.BooleanField(default=False)
+
+
+    def __str__(self):
+        return f"Moderation for {self.photo.title}"
+
+
+
+
 
 
 class User(AbstractUser):

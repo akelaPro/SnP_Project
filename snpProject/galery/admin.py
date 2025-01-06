@@ -1,6 +1,8 @@
 from django.contrib import admin
 from django.contrib.admin.models import LogEntry
-from . models import Photo, User, Vote, Comment
+
+from galery.flow import PhotoModerationFlow
+from . models import Photo, PhotoModerationProcess, User, Vote, Comment
 
 #admin.site.register(Vote)
 #admin.site.register(Comment)
@@ -46,3 +48,15 @@ class CommentAdmin(admin.ModelAdmin):
     ordering = ('created_at', 'text', 'author')
     search_fields = ('author__email', 'text')
     list_filter = ('author', 'photo',)
+
+
+@admin.register(PhotoModerationProcess)
+class PhotoModerationAdmin(admin.ModelAdmin):
+    list_display = ('photo', 'approved', 'rejected')
+    list_filter = ('approved', 'rejected')
+    search_fields = ('photo__title', 'photo__author__username')
+
+    def get_queryset(self, request):
+        return super().get_queryset(request)
+
+
