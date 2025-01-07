@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.admin.models import LogEntry
 
-from galery.flow import PhotoModerationFlow
+#from galery.flow import PhotoModerationFlow
 from . models import Photo, PhotoModerationProcess, User, Vote, Comment
 
 #admin.site.register(Vote)
@@ -56,7 +56,12 @@ class PhotoModerationAdmin(admin.ModelAdmin):
     list_filter = ('approved', 'rejected')
     search_fields = ('photo__title', 'photo__author__username')
 
-    def get_queryset(self, request):
-        return super().get_queryset(request)
+    def save_model(self, request, obj, change):
+        super().save_model(request, obj, change)
+        if obj.approved:
+            obj.photo.is_approved = True
+        elif obj.rejected:
+            obj.photo.is_approved = False
+        obj.photo.save()
 
 

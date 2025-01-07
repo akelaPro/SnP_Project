@@ -6,18 +6,18 @@ from imagekit.models import ImageSpecField
 from imagekit.processors import ResizeToFill
 from viewflow.workflow.models import Process
 from snpProject import settings
-
+from viewflow import jsonstore
 
 
 class Photo(models.Model):
 
     title = models.CharField(max_length=255, verbose_name='Заголовок')
     description = models.TextField(verbose_name='Описание')
-    image = models.ImageField(upload_to='photos/%Y/%m/%d/', default=None, blank=True, null=True, verbose_name='Фотография')  
+    image = models.ImageField(upload_to='photos/%Y/%m/%d/', default=None, blank=True, null=False, verbose_name='Фотография')  
     published_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата публикации')
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=4, related_name='photos')
     deleted_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата удаления')
-
+    is_approved = models.BooleanField(default=False, verbose_name='Одобрено')
 
     def get_absolute_url(self):
         return reverse('photo_detail', kwargs={'pk': self.pk})
@@ -31,9 +31,20 @@ class Photo(models.Model):
 
 
 class PhotoModerationProcess(Process):
-    photo = models.OneToOneField('Photo', on_delete=models.CASCADE, null=False)  # Обновлено с null=True на null=False
-    approved = models.BooleanField(default=False)
-    rejected = models.BooleanField(default=False)
+    photo = models.OneToOneField('Photo', on_delete=models.CASCADE, null=False)  
+    approved = jsonstore.BooleanField(default=False)
+    rejected = jsonstore.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if self.approved and not self.photo.is_approved:
+            self.photo.is_approved = True
+            self.photo.save()
+        elif self.rejected and self.photo.is_approved:
+            self.photo.is_approved = False
+            self.photo.save()
+
+
 
 
     def __str__(self):

@@ -4,6 +4,8 @@ from django.urls import path
 from viewflow.urls import Application, Site
 from viewflow.workflow.flow import FlowAppViewset
 
+from galery.flow import PhotoModerationProcessFlow
+
 from . import views 
 from .views import (
     AddCommentView,
@@ -17,6 +19,13 @@ from .views import (
 )
 app_name = 'galery'
 
+
+site = Site(
+        title="Galery Flow Demo",
+        viewsets=[
+            FlowAppViewset(PhotoModerationProcessFlow),
+        ]
+    )
 
 
 urlpatterns = [

@@ -9,7 +9,7 @@ from django.db.models import Count
 from snpProject import settings
 from django.db.models import Q
 
-from galery.flow import PhotoModerationFlow
+#from galery.flow import PhotoModerationFlow
 from .models import Photo, Comment, PhotoModerationProcess, Vote
 from .forms import AddPostForm, UploadFileForm
 from django.contrib.auth.decorators import login_required
