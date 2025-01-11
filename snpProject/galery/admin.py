@@ -1,23 +1,62 @@
+from datetime import timezone
 from django.contrib import admin
 from django.contrib.admin.models import LogEntry
 
 #from galery.flow import PhotoModerationFlow
-from . models import Photo, PhotoModerationProcess, User, Vote, Comment
+from galery.models import *
+from notification.models import Notification
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
 #admin.site.register(Vote)
 #admin.site.register(Comment)
 #admin.site.register(User)
-
+from django.utils.html import format_html
+from django.contrib import admin
+from galery.models import Photo
+from notification.models import Notification
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
 @admin.register(Photo)
 class PhotoAdmin(admin.ModelAdmin):
-    list_display = ('title', 'description', 'image', 'published_at', 'author')
-    list_display_links = ('title',)
-    list_editable = ('description', 'image',)
-    list_per_page = 4
-    ordering = ('published_at', )
-    search_fields = ('description', 'title')
-    list_filter = ('author',)
+    list_display = ('title', 'author', 'moderation', 'published_at', 'view_old_image')
+
+    def view_old_image(self, obj):
+        if obj.old_image:
+            return format_html('<img src="{}" style="width: 100px; height: auto;" />', obj.old_image.url)
+        return "Нет старого изображения"
+
+    view_old_image.short_description = "Старая фотография"
+    
+    def approve_photos(self, request, queryset):
+        for photo in queryset:
+            photo.moderation = '3'  # Одобрено
+            photo.save()
+            Notification.objects.create(user=photo.author, message=f"Ваша фотография '{photo.title}' одобрена.")
+            self.send_notification(photo.author.id, f"Ваша фотография '{photo.title}' одобрена.")
+        self.message_user(request, "Выбранные фотографии были одобрены.")
+
+    def reject_photos(self, request, queryset):
+        for photo in queryset:
+            photo.moderation = '1'  # Отклонено
+            photo.deleted_at = timezone.now()  # Установить время удаления
+            photo.save()
+            Notification.objects.create(user=photo.author, message=f"Ваша фотография '{photo.title}' отклонена.")
+            self.send_notification(photo.author.id, f"Ваша фотография '{photo.title}' отклонена.")
+        self.message_user(request, "Выбранные фотографии были отклонены.")
+
+
+
+#@admin.register(Photo)
+#class PhotoAdmin(admin.ModelAdmin):
+    #list_display = ('title', 'description', 'image', 'published_at', 'author', 'moderation')
+    #list_display_links = ('title',)
+    #list_editable = ('moderation', )
+    #list_per_page = 4
+    #ordering = ('published_at', )
+    #search_fields = ('description', 'title')
+    #list_filter = ('author',)
 
 
 @admin.register(User)
@@ -50,18 +89,5 @@ class CommentAdmin(admin.ModelAdmin):
     list_filter = ('author', 'photo',)
 
 
-@admin.register(PhotoModerationProcess)
-class PhotoModerationAdmin(admin.ModelAdmin):
-    list_display = ('photo', 'approved', 'rejected')
-    list_filter = ('approved', 'rejected')
-    search_fields = ('photo__title', 'photo__author__username')
-
-    def save_model(self, request, obj, change):
-        super().save_model(request, obj, change)
-        if obj.approved:
-            obj.photo.is_approved = True
-        elif obj.rejected:
-            obj.photo.is_approved = False
-        obj.photo.save()
 
 

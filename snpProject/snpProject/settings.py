@@ -46,9 +46,9 @@ INSTALLED_APPS = [
     'djoser',
     'rest_framework_simplejwt',
     'galery.apps.GaleryConfig',
-    'viewflow',
-    'viewflow.workflow',
+    'channels',
     'accounts.apps.AccountsConfig',
+    'notification.apps.NotificationConfig',
     
 ]
 
@@ -143,7 +143,7 @@ AUTH_USER_MODEL = 'galery.User'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-DEFAULT_USER_IMAGE = MEDIA_URL + 'avatars//default_avatar.png'
+DEFAULT_USER_IMAGE = MEDIA_URL + 'avatars/default_avatar.png'
 
 DEFAULT_PHOTO_IMAGE = MEDIA_URL + 'images/default_image.jpg'
 
@@ -152,7 +152,7 @@ LOGIN_REDIRECT_URL = 'galery:home'
 LOGOUT_REDIRECT_URL = 'galery:home'
 
 
-
+ASGI_APPLICATION = 'snpProject.asgi.application'
 
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
