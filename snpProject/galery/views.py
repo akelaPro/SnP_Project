@@ -8,13 +8,15 @@ from django.db.models import Count
 
 from snpProject import settings
 from django.db.models import Q
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+from galery.models import *
+from notification.models import Notification
 
-from galery.flow import PhotoModerationFlow
-from .models import Photo, Comment, PhotoModerationProcess, Vote
 from .forms import AddPostForm, UploadFileForm
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LogoutView
-from django.views.generic import TemplateView, ListView, DetailView, FormView, CreateView, UpdateView
+from django.views.generic import  ListView, DetailView, FormView, CreateView, UpdateView
 
 
 
@@ -24,8 +26,7 @@ class PhotoHome(ListView):
     context_object_name = 'photos'
 
     def get_queryset(self):
-        approved_photos = PhotoModerationProcess.objects.filter(approved=True).values_list('photo_id', flat=True)
-        queryset = Photo.objects.filter(id__in=approved_photos)
+        queryset = Photo.objects.filter(moderation='3')
     
 
         search_query = self.request.GET.get('search', '')
@@ -51,7 +52,8 @@ class PhotoHome(ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['default_photo'] = settings.DEFAULT_PHOTO_IMAGE  
+        context['default_photo'] = settings.DEFAULT_PHOTO_IMAGE
+        context['default_image'] = settings.DEFAULT_USER_IMAGE
         return context
 
 class AddPostView(CreateView):
@@ -63,7 +65,6 @@ class AddPostView(CreateView):
     def form_valid(self, form):
         form.instance.author = self.request.user
         photo = form.save()
-        process = PhotoModerationProcess.objects.create(photo=photo)  
         return super().form_valid(form)
 
 
@@ -93,6 +94,7 @@ class AddCommentView(View):
         comment_text = request.POST.get('text')
         
         if request.user.is_authenticated:
+
             comment = Comment.objects.create(text=comment_text, author=request.user, photo=photo)
             return JsonResponse({
                 'success': True,
@@ -104,6 +106,8 @@ class AddCommentView(View):
             })
         else:
             return JsonResponse({'success': False, 'error': 'Пользователь не авторизован'})
+    
+    
 
 
 class PhotoDetailView(DetailView):
@@ -117,7 +121,8 @@ class PhotoDetailView(DetailView):
         self.photo = self.object  
         context['comments'] = Comment.objects.filter(photo=self.photo)  
         context['likes_count'] = self.photo.votes.count()  
-        context['has_liked'] = self.has_liked(self.request.user, self.photo.id) 
+        context['has_liked'] = self.has_liked(self.request.user, self.photo.id)
+        context['default_image'] = settings.DEFAULT_USER_IMAGE
         return context 
 
     def has_liked(self, user, photo_id):
@@ -157,39 +162,25 @@ class AddVoteView(View):
 class RemoveVoteView(View):
     def post(self, request, photo_id):
         photo = get_object_or_404(Photo, id=photo_id)
+        
         if request.user.is_authenticated:
             try:
 
                 vote = Vote.objects.get(author=request.user, photo=photo)
                 vote.delete()
+                
+
                 return JsonResponse({'success': True, 'likes_count': photo.votes.count()})
             except Vote.DoesNotExist:
                 return JsonResponse({'success': False, 'error': 'Голос не найден.'})
         return JsonResponse({'success': False, 'error': 'Пользователь не авторизован'})
 
 
-
-
-class CreatePhotoModerationView(View):
-    def post(self, request, photo_id):
-        photo = get_object_or_404(Photo, id=photo_id)
-        process = PhotoModerationProcess.objects.create(photo=photo)  
-
-        return redirect('viewflow:photo_moderation_process', process.pk)
-    
-
-class DeletePhotoView(View):
-    def post(self, request, photo_id):
-        photo = get_object_or_404(Photo, id=photo_id)
-        photo.deleted_at = timezone.now()
-        photo.save()
-        return JsonResponse({'success': True})
-
 class RestorePhotoView(View):
     def post(self, request, photo_id):
         photo = get_object_or_404(Photo, id=photo_id)
-        if photo.deleted_at and (timezone.now() - photo.deleted_at).days < 1:
-            photo.deleted_at = None
+        if photo.deleted_at and timezone.now() < photo.deleted_at + timezone.timedelta(days=1):
+            photo.deleted_at = None  # Восстановить фотографию
             photo.save()
-            return JsonResponse({'success': True})
-        return JsonResponse({'success': False, 'error': 'Срок восстановления истек.'})
+            return JsonResponse({'success': True, 'message': 'Фотография восстановлена.'})
+        return JsonResponse({'success': False, 'error': 'Восстановление невозможно.'})
