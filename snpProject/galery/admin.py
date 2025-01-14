@@ -1,4 +1,5 @@
 from datetime import timezone
+from os import path
 from django.contrib import admin
 from django.contrib.admin.models import LogEntry
 
@@ -18,33 +19,42 @@ from notification.models import Notification
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 
+from notification.views import MassNotificationView
+
 @admin.register(Photo)
 class PhotoAdmin(admin.ModelAdmin):
-    list_display = ('title', 'author', 'moderation', 'published_at', 'view_old_image')
+    list_display = ('title', 'author', 'moderation', 'published_at')
 
-    def view_old_image(self, obj):
-        if obj.old_image:
-            return format_html('<img src="{}" style="width: 100px; height: auto;" />', obj.old_image.url)
-        return "Нет старого изображения"
-
-    view_old_image.short_description = "Старая фотография"
-    
     def approve_photos(self, request, queryset):
         for photo in queryset:
             photo.moderation = '3'  # Одобрено
             photo.save()
-            Notification.objects.create(user=photo.author, message=f"Ваша фотография '{photo.title}' одобрена.")
-            self.send_notification(photo.author.id, f"Ваша фотография '{photo.title}' одобрена.")
+            self.notify_user(photo.author, f"Ваша фотография '{photo.title}' одобрена.", 'photo_approved')
         self.message_user(request, "Выбранные фотографии были одобрены.")
 
     def reject_photos(self, request, queryset):
         for photo in queryset:
             photo.moderation = '1'  # Отклонено
-            photo.deleted_at = timezone.now()  # Установить время удаления
             photo.save()
-            Notification.objects.create(user=photo.author, message=f"Ваша фотография '{photo.title}' отклонена.")
-            self.send_notification(photo.author.id, f"Ваша фотография '{photo.title}' отклонена.")
+            self.notify_user(photo.author, f"Ваша фотография '{photo.title}' отклонена.", 'photo_rejected')
         self.message_user(request, "Выбранные фотографии были отклонены.")
+
+    def notify_user(self, user, message, notification_type):
+        notification = Notification.objects.create(user=user, message=message, notification_type=notification_type)
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"user_{user.id}",
+            {
+                'type': 'send_notification',
+                'notification': {
+                    'message': notification.message,
+                    'notification_type': notification.notification_type,
+                    'created_at': notification.created_at.isoformat(),
+                }
+            }
+        )
+
+
 
 
 

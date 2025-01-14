@@ -1,11 +1,16 @@
-
-
 {% extends 'base.html' %}
+
+{% load static %}  
 {% block content %}
 <h1>Уведомления</h1>
-<ul>
+<ul id="notification-list">
     {% for notification in notifications %}
-    <li>{{ notification.message }} - {{ notification.created_at }}</li>
+    <li class="notification-item" data-id="{{ notification.id }}">
+        {{ notification.message }} - {{ notification.created_at }}
+        <button class="close-notification" onclick="closeNotification(this)">×</button>
+    </li>
     {% endfor %}
 </ul>
+
+<script src="{% static 'js/notifications.js' %}"></script>  
 {% endblock %}

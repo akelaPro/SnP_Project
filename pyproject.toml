@@ -19,6 +19,8 @@ djangorestframework = "^3.15.2"
 djoser = "^2.3.1"
 djangorestframework-simplejwt = "^5.3.1"
 channels = "^4.2.0"
+d = "^0.2.2"
+channels-redis = "^4.2.1"
 
 
 
