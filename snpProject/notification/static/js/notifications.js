@@ -1,9 +1,10 @@
-const userId = document.body.getAttribute('data-user-id'); // Получите ID пользователя
-const socket = new WebSocket(`ws://${window.location.host}/ws/notifications/`);
+const userId = document.body.getAttribute('data-user-id'); 
+//const socket = new WebSocket(`ws://${window.location.host}/ws/notifications/`);
+const socket = new WebSocket('ws://127.0.0.1:8000/ws/notifications/');
 
 socket.onmessage = function(e) {
     const data = JSON.parse(e.data);
-    addNotification(data); // Добавить уведомление в список
+    addNotification(data);
 };
 
 socket.onopen = function(e) {
@@ -14,7 +15,7 @@ socket.onclose = function(e) {
     console.log("Соединение WebSocket закрыто.");
 };
 
-// Функция для добавления уведомления в список
+
 function addNotification(data) {
     const notificationList = document.getElementById('notification-list');
     const newNotification = document.createElement('li');
@@ -24,9 +25,8 @@ function addNotification(data) {
     notificationList.appendChild(newNotification);
 }
 
-// Функция для закрытия уведомления
 function closeNotification(button) {
     const notificationItem = button.parentElement;
-    notificationItem.remove(); // Удалить элемент из DOM
-    // Здесь вы можете добавить AJAX-запрос для удаления уведомления с сервера, если это необходимо
+    notificationItem.remove(); 
+    
 }
