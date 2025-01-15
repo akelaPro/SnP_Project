@@ -12,6 +12,7 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from galery.models import *
 from notification.models import Notification
+from galery.task import delete_photo
 
 from .forms import AddPostForm, UploadFileForm
 from django.contrib.auth.decorators import login_required
@@ -176,11 +177,20 @@ class RemoveVoteView(View):
         return JsonResponse({'success': False, 'error': 'Пользователь не авторизован'})
 
 
+class DeletePhotoView(View):
+    def post(self, request, photo_id):
+        photo = get_object_or_404(Photo, id=photo_id)
+        photo.moderation = '1'  
+        photo.save() 
+
+        return JsonResponse({'success': True, 'message': 'Фотография помечена на удаление.'})
+
+
 class RestorePhotoView(View):
     def post(self, request, photo_id):
         photo = get_object_or_404(Photo, id=photo_id)
         if photo.deleted_at and timezone.now() < photo.deleted_at + timezone.timedelta(days=1):
-            photo.deleted_at = None  # Восстановить фотографию
+            photo.deleted_at = None  
             photo.save()
             return JsonResponse({'success': True, 'message': 'Фотография восстановлена.'})
         return JsonResponse({'success': False, 'error': 'Восстановление невозможно.'})

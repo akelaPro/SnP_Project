@@ -92,6 +92,10 @@ CHANNEL_LAYERS = {
 }
 
 
+CELERY_BROKER_URL = 'redis://localhost:6379/0'  # или другой URL вашего брокера
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 

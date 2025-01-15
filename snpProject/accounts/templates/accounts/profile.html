@@ -58,7 +58,10 @@
                             <div class="card-body">
                                 <h5 class="card-title">{{ photo.title }}</h5>
                                 <p class="card-text">{{ photo.description }}</p>
-                                <p class="text-muted">Дата публикации: {{ photo.published_at }}</p>
+                                <p class="card-text">Статус: {{ photo.get_moderation_display }}</p>
+                                {% if photo.get_moderation_display == 'Одобренно' %}
+                                    <p class="text-muted">Дата публикации: {{ photo.published_at }}</p>
+                                {% endif %}
                             </div>
                         </div>
                     </div>

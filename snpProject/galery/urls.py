@@ -10,10 +10,10 @@ from .views import (
     AddCommentView,
     AddPostView,
     AddVoteView,
-    #DeletePhotoView, 
+    DeletePhotoView,
     PhotoDetailView,
     RemoveVoteView,
-    #RestorePhotoView,
+    RestorePhotoView,
 )
 app_name = 'galery'
 
@@ -30,8 +30,8 @@ urlpatterns = [
     path('photo/<int:photo_id>/add_vote/', AddVoteView.as_view(), name='add_vote'),
     path('add-post/', AddPostView.as_view(), name='add_post'),
     path('photo/<int:photo_id>/remove_vote/',RemoveVoteView.as_view(), name='remove_vote'),
-    #path('photo/<int:photo_id>/delete/', DeletePhotoView.as_view(), name='delete_photo'),
-    #path('photo/<int:photo_id>/restore/', RestorePhotoView.as_view(), name='restore_photo'),
+    path('photo/<int:photo_id>/delete/', DeletePhotoView.as_view(), name='delete_photo'),
+    path('photo/<int:photo_id>/restore/', RestorePhotoView.as_view(), name='restore_photo'),
 ]
 
 
