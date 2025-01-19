@@ -18,6 +18,9 @@
               <li class="nav-item">
                 <a class="nav-link active" aria-current="page" href="{% url 'galery:home' %}">Главная</a>
               </li>
+              <li>
+                <a class="nav-link active" aria-current="page" href="{% url 'notification:notification_list' %}">Уведомления</a>
+              </li>
             </ul>
             <form class="d-flex" role="search" method="get" action="{% url 'galery:home' %}">
               <input class="form-control me-2" type="search" name="search" placeholder="Поиск" aria-label="Поиск" value="{{ request.GET.search }}">

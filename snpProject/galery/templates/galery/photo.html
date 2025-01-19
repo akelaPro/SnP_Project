@@ -40,6 +40,14 @@
             </div>
             <button type="submit" class="btn btn-primary">Добавить комментарий</button>
         </form>
+        
+        {% if photo.author == user %}
+            {% if photo.deleted_at %}
+                <button id="restore-photo-button" class="btn btn-warning" data-photo-id="{{ photo.pk }}">Восстановить фотографию</button>
+            {% else %}
+                <button id="delete-photo-button" class="btn btn-danger" data-photo-id="{{ photo.pk }}">Удалить фотографию</button>
+            {% endif %}
+        {% endif %}
     {% else %}
         <p>Чтобы добавить комментарий, вам нужно <a href="{% url 'login' %}">войти</a>.</p>
     {% endif %}
@@ -60,101 +68,122 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
     $(document).ready(function() {
-        // Установка CSRF-токена для всех AJAX-запросов
         $.ajaxSetup({
             headers: {
-                'X-CSRFToken': '{{ csrf_token }}' // Используем CSRF-токен из шаблона
+                'X-CSRFToken': '{{ csrf_token }}' 
             }
         });
 
-        // AJAX для добавления комментария
         $('#comment-form').submit(function(event) {
-    event.preventDefault(); // Предотвратить обычное отправление формы
-
-    $.ajax({
-        url: '{% url "galery:add_comment" photo.id %}', // URL для отправки
-        type: 'POST',
-        data: $(this).serialize(), // Собрать данные формы
-        success: function(response) {
-            if (response.success) {
-                // Добавить новый комментарий в список
-                $('#comments-list').append('<li class="mb-2"><strong>' + response.comment.author + ':</strong> ' + response.comment.text + '</li>');
-                $('#comment-form textarea').val(''); // Очистить поле ввода
-
-                // Отправка уведомления о новом комментарии
-                $.ajax({
-                    url: '/notifications/send/', // URL для отправки уведомления
-                    type: 'POST',
-                    data: {
-                        'recipient_id': response.photo.author_id, // ID автора фото
-                        'message': 'Новый комментарий на ваше фото: ' + response.comment.text,
-                        'notification_type': 'new_comment',
-                        'csrfmiddlewaretoken': '{{ csrf_token }}' // CSRF-токен
-                    }
-                });
-            } else {
-                alert(response.error); // Обработать ошибку
-            }
-        },
-        error: function(xhr, status, error) {
-            alert('Произошла ошибка: ' + error);
-        }
-    });
-});
-
-
-        // AJAX для добавления лайка
-        $(document).on('click', '.like-button', function(event) {
-    event.preventDefault(); // Предотвратить обычное отправление формы
-
-    var button = $(this);
-    var photoId = button.data('photo-id'); // Получить ID фото
-
-    $.ajax({
-        url: '/photo/' + photoId + '/add_vote/', // URL для отправки
-        type: 'POST',
-        success: function(response) {
-            if (response.success) {
-                $('#likes-count').text('Лайки: ' + response.likes_count); // Обновить счетчик лайков
-                button.replaceWith('<button class="remove-like-button btn btn-danger" data-photo-id="' + photoId + '">Убрать лайк</button>'); // Заменить кнопку
-
-                // Отправка уведомления о новом лайке
-                $.ajax({
-                    url: '/notifications/send/', // URL для отправки уведомления
-                    type: 'POST',
-                    data: {
-                        'recipient_id': response.photo.author_id, // ID автора фото
-                        'message': 'Ваше фото получило новый лайк!',
-                        'notification_type': 'new_like',
-                        'csrfmiddlewaretoken': '{{ csrf_token }}' // CSRF-токен
-                    }
-                });
-            } else {
-                alert(response.error); // Обработать ошибку
-            }
-        },
-        error: function(xhr, status, error) {
-            alert('Произошла ошибка: ' + error);
-        }
-    });
-});
-
-        // AJAX для удаления лайка
-        $(document).on('click', '.remove-like-button', function(event) {
-            event.preventDefault(); // Предотвратить обычное отправление формы
-
-            var button = $(this);
-            var photoId = button.data('photo-id'); // Получить ID фото
+            event.preventDefault(); 
 
             $.ajax({
-                url: '/photo/' + photoId + '/remove_vote/', // URL для отправки
+                url: '{% url "galery:add_comment" photo.id %}', 
+                type: 'POST',
+                data: $(this).serialize(),
+                success: function(response) {
+                    if (response.success) {
+                        $('#comments-list').append('<li class="mb-2"><strong>' + response.comment.author + ':</strong> ' + response.comment.text + '</li>');
+                        $('#comment-form textarea').val(''); 
+                    } else {
+                        alert(response.error); 
+                    }
+                },
+                error: function(xhr, status, error) {
+                    alert('Произошла ошибка: ' + error);
+                }
+            });
+        });
+
+        $('#delete-photo-button').click(function(event) {
+            event.preventDefault(); 
+
+            var button = $(this);
+            var photoId = button.data('photo-id'); 
+
+            if (confirm('Вы уверены, что хотите удалить эту фотографию?')) {
+                $.ajax({
+                    url: '/photo/' + photoId + '/delete/', 
+                    type: 'POST', 
+                    success: function(response) {
+                        if (response.success) {
+                            alert('Фотография помечена на удаление.');
+                           
+                            button.replaceWith('<button id="restore-photo-button" class="btn btn-warning" data-photo-id="' + photoId + '">Восстановить фотографию</button>');
+                        } else {
+                            alert(response.error); 
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        alert('Произошла ошибка: ' + error);
+                    }
+                });
+            }
+        });
+
+        $(document).on('click', '#restore-photo-button', function(event) {
+            event.preventDefault();
+
+            var button = $(this);
+            var photoId = button.data('photo-id');
+
+            if (confirm('Вы уверены, что хотите восстановить эту фотографию?')) {
+                $.ajax({
+                    url: '/photo/' + photoId + '/restore/',
+                    type: 'POST',
+                    success: function(response) {
+                        if (response.success) {
+                            alert('Фотография восстановлена.');
+                            button.replaceWith('<button id="delete-photo-button" class="btn btn-danger" data-photo-id="' + photoId + '">Удалить фотографию</button>');
+                        } else {
+                            alert(response.error);
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        alert('Произошла ошибка: ' + error);
+                    }
+                });
+            }
+        });
+        
+
+        $(document).on('click', '.like-button', function(event) {
+            event.preventDefault(); 
+
+            var button = $(this);
+            var photoId = button.data('photo-id'); 
+
+            $.ajax({
+                url: '/photo/' + photoId + '/add_vote/', 
                 type: 'POST',
                 success: function(response) {
                     if (response.success) {
-                        $('#likes-count').text('Лайки: ' + response.likes_count); // Обновить счетчик лайков
-                        button.replaceWith('<button class="like-button btn btn-success" data-photo-id="' + photoId + '">Лайк</button>'); // Заменить кнопку
+                        $('#likes-count').text('Лайки: ' + response.likes_count); 
+                        button.replaceWith('<button class="remove-like-button btn btn-danger" data-photo-id="' + photoId + '">Убрать лайк</button>'); 
                     } else {
-                        alert(response.error); // Обработать ошибку
+                        alert(response.error); 
+                    }
+                },
+                error: function(xhr, status, error) {
+                    alert('Произошла ошибка: ' + error);
+                }
+            });
+        });
+
+        $(document).on('click', '.remove-like-button', function(event) {
+            event.preventDefault(); 
+            var button = $(this);
+            var photoId = button.data('photo-id'); 
+
+            $.ajax({
+                url: '/photo/' + photoId + '/remove_vote/', 
+                type: 'POST',
+                success: function(response) {
+                    if (response.success) {
+                        $('#likes-count').text('Лайки: ' + response.likes_count); 
+                        button.replaceWith('<button class="like-button btn btn-success" data-photo-id="' + photoId + '">Лайк</button>'); 
+                    } else {
+                        alert(response.error); 
                     }
                 },
                 error: function(xhr, status, error) {

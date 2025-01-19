@@ -20,7 +20,7 @@ class MassNotificationView(View):
         notification_type = 'mass_notification'
         user = get_user_model()
 
-        for user in User.objects.all():
+        for user in user.objects.all():
             notification = Notification.objects.create(user=user, message=message, notification_type=notification_type)
             channel_layer = get_channel_layer()
             async_to_sync(channel_layer.group_send)(

@@ -1,4 +1,4 @@
-from datetime import timezone
+from django.utils import timezone
 import os
 from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -12,6 +12,7 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from galery.models import *
 from notification.models import Notification
+from galery.task import delete_photo
 
 from .forms import AddPostForm, UploadFileForm
 from django.contrib.auth.decorators import login_required
@@ -94,8 +95,9 @@ class AddCommentView(View):
         comment_text = request.POST.get('text')
         
         if request.user.is_authenticated:
-
             comment = Comment.objects.create(text=comment_text, author=request.user, photo=photo)
+            # Отправка уведомления автору фотографии
+            self.notify_user(photo.author, f"Новый комментарий на вашу фотографию '{photo.title}': {comment.text}", 'new_comment')
             return JsonResponse({
                 'success': True,
                 'comment': {
@@ -106,6 +108,21 @@ class AddCommentView(View):
             })
         else:
             return JsonResponse({'success': False, 'error': 'Пользователь не авторизован'})
+
+    def notify_user(self, user, message, notification_type):
+        notification = Notification.objects.create(user=user, message=message, notification_type=notification_type)
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"user_{user.id}",
+            {
+                'type': 'send_notification',
+                'notification': {
+                    'message': notification.message,
+                    'notification_type': notification.notification_type,
+                    'created_at': notification.created_at.isoformat(),
+                }
+            }
+        )
     
     
 
@@ -151,13 +168,29 @@ class AddVoteView(View):
     def post(self, request, photo_id):
         photo = get_object_or_404(Photo, id=photo_id)
         if request.user.is_authenticated:
-            
             if not Vote.objects.filter(author=request.user, photo=photo).exists():
-                Vote.objects.create(author=request.user, photo=photo)  
+                Vote.objects.create(author=request.user, photo=photo)
+                # Отправка уведомления автору фотографии
+                self.notify_user(photo.author, f"Ваша фотография '{photo.title}' получила новый лайк!", 'new_like')
                 return JsonResponse({'success': True, 'likes_count': photo.votes.count()})
             else:
                 return JsonResponse({'success': False, 'error': 'Вы уже проголосовали.'})
         return JsonResponse({'success': False, 'error': 'Пользователь не авторизован'})
+
+    def notify_user(self, user, message, notification_type):
+        notification = Notification.objects.create(user=user, message=message, notification_type=notification_type)
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"user_{user.id}",
+            {
+                'type': 'send_notification',
+                'notification': {
+                    'message': notification.message,
+                    'notification_type': notification.notification_type,
+                    'created_at': notification.created_at.isoformat(),
+                }
+            }
+        )
 
 class RemoveVoteView(View):
     def post(self, request, photo_id):
@@ -176,11 +209,41 @@ class RemoveVoteView(View):
         return JsonResponse({'success': False, 'error': 'Пользователь не авторизован'})
 
 
+
+class DeletePhotoView(View):
+    def post(self, request, photo_id):
+        photo = get_object_or_404(Photo, id=photo_id)
+        photo.moderation = '1'  # Статус "Помечена на удаление"
+        photo.deleted_at = timezone.now()  # Установите время удаления
+        photo.save()
+        # Отправка уведомления автору фотографии
+        delete_photo.apply_async((photo_id,), countdown= 60)
+        self.notify_user(photo.author, f"Ваша фотография '{photo.title}' помечена на удаление.", 'photo_deleted')
+        return JsonResponse({'success': True, 'message': 'Фотография помечена на удаление.'})
+
+    def notify_user(self, user, message, notification_type):
+        notification = Notification.objects.create(user=user, message=message, notification_type=notification_type)
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"user_{user.id}",
+            {
+                'type': 'send_notification',
+                'notification': {
+                    'message': notification.message,
+                    'notification_type': notification.notification_type,
+                    'created_at': notification.created_at.isoformat(),
+                }
+            }
+        )
+
+
+
 class RestorePhotoView(View):
     def post(self, request, photo_id):
         photo = get_object_or_404(Photo, id=photo_id)
         if photo.deleted_at and timezone.now() < photo.deleted_at + timezone.timedelta(days=1):
-            photo.deleted_at = None  # Восстановить фотографию
+            photo.deleted_at = None  # Сбросить время удаления
+            photo.moderation = '2'
             photo.save()
             return JsonResponse({'success': True, 'message': 'Фотография восстановлена.'})
         return JsonResponse({'success': False, 'error': 'Восстановление невозможно.'})

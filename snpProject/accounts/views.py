@@ -53,10 +53,7 @@ class UserProfile(UpdateView):
         user.save()
         return super().form_valid(form)
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['photos'] = self.request.user.photos.all()
-        return context
+
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
