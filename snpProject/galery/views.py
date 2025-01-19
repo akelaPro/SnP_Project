@@ -217,7 +217,7 @@ class DeletePhotoView(View):
         photo.deleted_at = timezone.now()  # Установите время удаления
         photo.save()
         # Отправка уведомления автору фотографии
-        delete_photo.apply_async((photo_id,), countdown=24 * 60 *60)
+        delete_photo.apply_async((photo_id,), countdown= 60)
         self.notify_user(photo.author, f"Ваша фотография '{photo.title}' помечена на удаление.", 'photo_deleted')
         return JsonResponse({'success': True, 'message': 'Фотография помечена на удаление.'})
 
