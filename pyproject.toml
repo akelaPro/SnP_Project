@@ -4,6 +4,9 @@ version = "0.1.0"
 description = ""
 authors = ["akelaPro <ilya_chernov_2022@mail.ru>"]
 readme = "README.md"
+packages = [
+    { include = "snpProject" }
+]
 
 [tool.poetry.dependencies]
 python = "^3.12"
@@ -26,7 +29,6 @@ celery = "^5.4.0"
 
 
 
-
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
