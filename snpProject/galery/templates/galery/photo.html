@@ -42,7 +42,11 @@
         </form>
         
         {% if photo.author == user %}
-            <button id="delete-photo-button" class="btn btn-danger" data-photo-id="{{ photo.pk }}">Удалить фотографию</button>
+            {% if photo.deleted_at %}
+                <button id="restore-photo-button" class="btn btn-warning" data-photo-id="{{ photo.pk }}">Восстановить фотографию</button>
+            {% else %}
+                <button id="delete-photo-button" class="btn btn-danger" data-photo-id="{{ photo.pk }}">Удалить фотографию</button>
+            {% endif %}
         {% endif %}
     {% else %}
         <p>Чтобы добавить комментарий, вам нужно <a href="{% url 'login' %}">войти</a>.</p>
@@ -64,14 +68,12 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
     $(document).ready(function() {
-
         $.ajaxSetup({
             headers: {
                 'X-CSRFToken': '{{ csrf_token }}' 
             }
         });
 
-     
         $('#comment-form').submit(function(event) {
             event.preventDefault(); 
 
@@ -81,21 +83,8 @@
                 data: $(this).serialize(),
                 success: function(response) {
                     if (response.success) {
-                       
                         $('#comments-list').append('<li class="mb-2"><strong>' + response.comment.author + ':</strong> ' + response.comment.text + '</li>');
                         $('#comment-form textarea').val(''); 
-
-                        
-                        $.ajax({
-                            url: '/notifications/send/',
-                            type: 'POST',
-                            data: {
-                                'recipient_id': response.photo.author_id, 
-                                'message': 'Новый комментарий на ваше фото: ' + response.comment.text,
-                                'notification_type': 'new_comment',
-                                'csrfmiddlewaretoken': '{{ csrf_token }}' 
-                            }
-                        });
                     } else {
                         alert(response.error); 
                     }
@@ -106,34 +95,57 @@
             });
         });
 
-        
         $('#delete-photo-button').click(function(event) {
-    event.preventDefault(); 
+            event.preventDefault(); 
 
-    var button = $(this);
-    var photoId = button.data('photo-id'); 
+            var button = $(this);
+            var photoId = button.data('photo-id'); 
 
-    if (confirm('Вы уверены, что хотите удалить эту фотографию?')) {
-        $.ajax({
-            url: '/photo/' + photoId + '/delete/', 
-            type: 'POST', 
-            success: function(response) {
-                if (response.success) {
-                    alert('Фотография помечена на удаление.');
-                    
-                    $('#delete-photo-button').text('Фотография помечена на удаление').prop('disabled', true);
-                   
-                } else {
-                    alert(response.error); 
-                }
-            },
-            error: function(xhr, status, error) {
-                alert('Произошла ошибка: ' + error);
+            if (confirm('Вы уверены, что хотите удалить эту фотографию?')) {
+                $.ajax({
+                    url: '/photo/' + photoId + '/delete/', 
+                    type: 'POST', 
+                    success: function(response) {
+                        if (response.success) {
+                            alert('Фотография помечена на удаление.');
+                           
+                            button.replaceWith('<button id="restore-photo-button" class="btn btn-warning" data-photo-id="' + photoId + '">Восстановить фотографию</button>');
+                        } else {
+                            alert(response.error); 
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        alert('Произошла ошибка: ' + error);
+                    }
+                });
             }
         });
-    }
-});
 
+        $(document).on('click', '#restore-photo-button', function(event) {
+            event.preventDefault();
+
+            var button = $(this);
+            var photoId = button.data('photo-id');
+
+            if (confirm('Вы уверены, что хотите восстановить эту фотографию?')) {
+                $.ajax({
+                    url: '/photo/' + photoId + '/restore/',
+                    type: 'POST',
+                    success: function(response) {
+                        if (response.success) {
+                            alert('Фотография восстановлена.');
+                            button.replaceWith('<button id="delete-photo-button" class="btn btn-danger" data-photo-id="' + photoId + '">Удалить фотографию</button>');
+                        } else {
+                            alert(response.error);
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        alert('Произошла ошибка: ' + error);
+                    }
+                });
+            }
+        });
+        
 
         $(document).on('click', '.like-button', function(event) {
             event.preventDefault(); 
@@ -147,19 +159,7 @@
                 success: function(response) {
                     if (response.success) {
                         $('#likes-count').text('Лайки: ' + response.likes_count); 
-                        button.replaceWith('<button class="remove-like-button btn btn-danger" data-photo-id="' + photoId + '">Убрать лайк</button>'); // Заменить кнопку
-
-                        
-                        $.ajax({
-                            url: '/notifications/send/', 
-                            type: 'POST',
-                            data: {
-                                'recipient_id': response.photo.author_id, 
-                                'message': 'Ваше фото получило новый лайк!',
-                                'notification_type': 'new_like',
-                                'csrfmiddlewaretoken': '{{ csrf_token }}' 
-                            }
-                        });
+                        button.replaceWith('<button class="remove-like-button btn btn-danger" data-photo-id="' + photoId + '">Убрать лайк</button>'); 
                     } else {
                         alert(response.error); 
                     }
@@ -170,7 +170,6 @@
             });
         });
 
-        
         $(document).on('click', '.remove-like-button', function(event) {
             event.preventDefault(); 
             var button = $(this);
@@ -182,7 +181,7 @@
                 success: function(response) {
                     if (response.success) {
                         $('#likes-count').text('Лайки: ' + response.likes_count); 
-                        button.replaceWith('<button class="like-button btn btn-success" data-photo-id="' + photoId + '">Лайк</button>'); // Заменить кнопку
+                        button.replaceWith('<button class="like-button btn btn-success" data-photo-id="' + photoId + '">Лайк</button>'); 
                     } else {
                         alert(response.error); 
                     }
