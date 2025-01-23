@@ -10,6 +10,7 @@ class NotificationAdmin(admin.ModelAdmin):
     actions = ['send_mass_notification']
 
     def send_mass_notification(self, request, queryset):
+        print('abrakadabra')
         form = MassNotificationForm(request.POST or None)
         if request.method == 'POST' and form.is_valid():
             message = form.cleaned_data['message']
