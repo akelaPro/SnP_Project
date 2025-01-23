@@ -9,7 +9,7 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             self.group_name = f"user_{self.user.id}"
             await self.channel_layer.group_add(self.group_name, self.channel_name)
             await self.channel_layer.group_add("all_users", self.channel_name)  # Добавляем пользователя в группу всех
-            await self.accept()
+        await self.accept()
 
     async def disconnect(self, close_code):
         if self.user.is_authenticated:
