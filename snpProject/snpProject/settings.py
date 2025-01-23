@@ -162,7 +162,7 @@ AUTH_USER_MODEL = 'galery.User'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-DEFAULT_USER_IMAGE = MEDIA_URL + 'avatars/default_avatar.png'
+DEFAULT_USER_IMAGE = MEDIA_URL + 'avatars/default_avatar/default_avatar.png'
 
 DEFAULT_PHOTO_IMAGE = MEDIA_URL + 'images/default_image.jpg'
 
