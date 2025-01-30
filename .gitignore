@@ -11,6 +11,7 @@ __pycache__/
 *.py[cod]
 *.sqlite3
 media/
+!media/avatars/default_avatr/default_avatar.png
 staticfiles/
 .env
 *.env

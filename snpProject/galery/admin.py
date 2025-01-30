@@ -2,29 +2,24 @@ from datetime import timezone
 from os import path
 from django.contrib import admin
 from django.contrib.admin.models import LogEntry
-
-#from galery.flow import PhotoModerationFlow
 from galery.models import *
-from notification.models import Notification
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
-
-#admin.site.register(Vote)
-#admin.site.register(Comment)
-#admin.site.register(User)
 from django.utils.html import format_html
 from django.contrib import admin
-from galery.models import Photo
 from notification.models import Notification
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
-
 from notification.views import MassNotificationView
+
+
 
 @admin.register(Photo)
 class PhotoAdmin(admin.ModelAdmin):
     list_display = ('title', 'author', 'moderation', 'published_at')
+    actions = ('approve_photos', 'reject_photos') # <<<<===== вот это добавил
 
+    @admin.action(description='Approve photos') # <<<<===== вот это добавил
     def approve_photos(self, request, queryset):
         for photo in queryset:
             photo.moderation = '3'  # Одобрено
@@ -32,6 +27,7 @@ class PhotoAdmin(admin.ModelAdmin):
             self.notify_user(photo.author, f"Ваша фотография '{photo.title}' одобрена.", 'photo_approved')
         self.message_user(request, "Выбранные фотографии были одобрены.")
 
+    @admin.action(description='Reject photos') # <<<<===== вот это добавил
     def reject_photos(self, request, queryset):
         for photo in queryset:
             photo.moderation = '1'  # Отклонено
@@ -58,15 +54,6 @@ class PhotoAdmin(admin.ModelAdmin):
 
 
 
-#@admin.register(Photo)
-#class PhotoAdmin(admin.ModelAdmin):
-    #list_display = ('title', 'description', 'image', 'published_at', 'author', 'moderation')
-    #list_display_links = ('title',)
-    #list_editable = ('moderation', )
-    #list_per_page = 4
-    #ordering = ('published_at', )
-    #search_fields = ('description', 'title')
-    #list_filter = ('author',)
 
 
 @admin.register(User)
@@ -77,6 +64,7 @@ class UserAdmin(admin.ModelAdmin):
     list_per_page = 4
     ordering = ('created_at', 'email')
     search_fields = ('email',)
+
 
 @admin.register(Vote)
 class Votedmin(admin.ModelAdmin):

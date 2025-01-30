@@ -2,7 +2,7 @@
 
 from django.shortcuts import redirect, render
 from django.views import View
-from notification.models import Notification
+from .models import Notification
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from django.contrib.auth import get_user_model
@@ -19,7 +19,7 @@ class MassNotificationView(View):
         message = request.POST.get('message')
         notification_type = 'mass_notification'
         user = get_user_model()
-
+        print(user)
         for user in user.objects.all():
             notification = Notification.objects.create(user=user, message=message, notification_type=notification_type)
             channel_layer = get_channel_layer()
