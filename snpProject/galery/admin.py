@@ -10,7 +10,7 @@ from django.contrib import admin
 from notification.models import Notification
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
-from notification.views import MassNotificationView
+#from notification.views import MassNotificationView
 
 
 

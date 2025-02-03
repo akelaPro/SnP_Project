@@ -8,70 +8,86 @@
                 <div class="card-header">
                     <h5>Профиль</h5>
                 </div>
-                <div class="card-body">
-                    <form method="post" enctype="multipart/form-data">
-                        {% csrf_token %}
-                        {% if user.avatar %}
-                            <img src="{{ user.avatar.url }}?{{ user.avatar.updated_at.timestamp }}" alt="Аватар пользователя" class="img-fluid rounded-circle mb-3" style="width: 100px; height: 100px;">
-                        {% else %}
-                            <img src="{{ default_image }}" alt="Дефолтный аватар" class="img-fluid rounded-circle mb-3" style="width: 100px; height: 100px;">
-                        {% endif %}
-                        
-                        <div class="form-error">{{ form.non_field_errors }}</div>
-                        {% for f in form %}
-                            <div class="form-group">
-                                <label for="{{ f.id_for_label }}">{{ f.label }}</label>
-                                {{ f }}
-                                <div class="text-danger">{{ f.errors }}</div>
-                            </div>
-                        {% endfor %}
-                        <button type="submit" class="btn btn-primary">Сохранить</button>
-                    </form>
-                </div>
-            </div>
-
-            <div class="card mt-3">
-                <div class="card-header">
-                    <h5>Управление постами</h5>
-                </div>
-                <div class="card-body">
-                    <ul class="list-group">
-                        <li class="list-group-item"><a href="{% url 'galery:add_post' %}">Добавить новый пост</a></li>
-                    </ul>
+                <div class="card-body" id="profile-info">
+                    <!-- Данные профиля будут загружены сюда -->
                 </div>
             </div>
         </div>
 
         <div class="col-md-8">
             <h2>Мои фотографии</h2>
-            <div class="row">
-                {% for photo in photos %}
-                    <div class="col-md-4 mb-4">
-                        <div class="card">
-                            <a href="{% url 'galery:photo_detail' photo.id %}">  <!-- Ссылка на страницу с детальным отображением фотографии -->
-                                {% if photo.image %}
-                                    <img src="{{ photo.image.url }}" alt="{{ photo.title }}" class="card-img-top" style="max-height: 200px; object-fit: cover;">
-                                {% else %}
-                                    <img src="{{ default_photo }}" alt="Дефолтное изображение" class="card-img-top" style="max-height: 200px; object-fit: cover;">
-                                {% endif %}
-                            </a>
-                            <div class="card-body">
-                                <h5 class="card-title">{{ photo.title }}</h5>
-                                <p class="card-text">{{ photo.description }}</p>
-                                <p class="card-text">Статус: {{ photo.get_moderation_display }}</p>
-                                {% if photo.get_moderation_display == 'Одобренно' %}
-                                    <p class="text-muted">Дата публикации: {{ photo.published_at }}</p>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-                {% empty %}
-                    <div class="col-12">
-                        <p>У вас пока нет фотографий.</p>
-                    </div>
-                {% endfor %}
+            <div class="row" id="photos">
+                <!-- Фотографии будут загружены сюда -->
             </div>
         </div>
     </div>
 </div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+$(document).ready(function() {
+    const accessToken = localStorage.getItem('access_token');
+    if (!accessToken) {
+        console.error('Токен доступа отсутствует');
+        return;
+    }
+
+    // Загрузка данных профиля
+    $.ajax({
+        url: '{% url "accounts:user_profile" %}',
+        method: 'GET',
+        headers: {
+            'Authorization': 'Bearer ' + accessToken
+        },
+        success: function(data) {
+            $('#profile-info').html(`
+                <img src="${data.avatar || '{{ default_image }}'}" alt="Avatar" class="img-fluid rounded-circle mb-3" style="width: 100px; height: 100px;">
+                <p>Логин: ${data.username}</p>
+                <p>Email: ${data.email}</p>
+                <button id="edit-profile" class="btn btn-primary">Редактировать</button>
+            `);
+        },
+        error: function(xhr) {
+            console.error('Ошибка при загрузке профиля:', xhr.responseText);
+        }
+    });
+
+    // Загрузка фотографий
+    $.ajax({
+        url: '{% url "accounts:user_photos" %}',
+        method: 'GET',
+        headers: {
+            'Authorization': 'Bearer ' + accessToken
+        },
+        success: function(data) {
+            let photosHtml = '';
+            if (data.length > 0) {
+                data.forEach(photo => {
+                    photosHtml += `
+                        <div class="col-md-4 mb-4">
+                            <div class="card">
+                                <a href="/galery/photo_detail/${photo.id}/">
+                                    <img src="${photo.image}" alt="${photo.title}" class="card-img-top" style="max-height: 200px; object-fit: cover;">
+                                </a>
+                                <div class="card-body">
+                                    <h5 class="card-title">${photo.title}</h5>
+                                    <p class="card-text">${photo.description}</p>
+                                    <p class="card-text">Статус: ${photo.moderation}</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                photosHtml = `<div class="col-12"><p>У вас нет загруженных фотографий.</p></div>`;
+            }
+            $('#photos').html(photosHtml); // Обратите внимание на исправление id контейнера
+        },
+        error: function(xhr) {
+            console.error('Ошибка при загрузке фотографий:', xhr.responseText);
+        }
+    });
+});
+
+</script>
 {% endblock %}

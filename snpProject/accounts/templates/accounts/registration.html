@@ -1,16 +1,60 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Регистрация</title>
-</head>
-<body>
+{% extends 'base.html' %}
+
+{% block content %}
     <h1>Регистрация</h1>
-    <form method="post">
+    <form id="registration-form" method="post">
         {% csrf_token %}
-        {{ form.as_p }}
+        <label for="username">Имя пользователя:</label>
+        <input type="text" name="username" required><br>
+        
+        <label for="email">Email:</label>
+        <input type="email" name="email" required><br>
+        
+        <label for="password">Пароль:</label>
+        <input type="password" name="password" required><br>
+        
         <button type="submit">Зарегистрироваться</button>
     </form>
     <p>Уже есть аккаунт? <a href="{% url 'accounts:login' %}">Войти</a></p>
-</body>
-</html>
+    
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('#registration-form').on('submit', function(event) {
+                event.preventDefault();
+                $.ajax({
+                    type: 'POST',
+                    url: '{% url "accounts:registration" %}',
+                    data: $(this).serialize(),
+                    success: function(response) {
+                        alert('Регистрация успешна!');
+
+                        // Получение токена после регистрации
+                        $.ajax({
+                            type: 'POST',
+                            url: '{% url "accounts:token_obtain_pair" %}',
+
+                            data: {
+                                'username': response.user.username,
+                                'password': $('input[name="password"]').val()
+                            },
+                            success: function(tokenResponse) {
+                                // Сохраните токен в локальном хранилище или куки
+                                localStorage.setItem('access_token', tokenResponse.access);
+                                localStorage.setItem('refresh_token', tokenResponse.refresh);
+                                window.location.href = '{% url "accounts:login_template" %}'; // Перенаправление на страницу входа
+                            },
+                            error: function(xhr) {
+                                alert('Ошибка получения токена: ' + xhr.responseText);
+                            }
+                        });
+                    },
+                    error: function(xhr) {
+                        alert('Ошибка регистрации: ' + xhr.responseText);
+                    }
+                });
+            });
+        });
+    </script>
+{% endblock %}
+

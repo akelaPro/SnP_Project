@@ -1,32 +1,51 @@
 {% extends 'base.html' %}
+
 {% block content %}
-<div class="container">
-    <div class="row">
-        {% for photo in photos %}
-        <div class="col-md-4 mb-4">
-            <div class="card">
-                <a href="{% url 'galery:photo_detail' photo.id %}">
-                    {% if photo.image %}
-                        <img src="{{ photo.image.url }}" alt="{{ photo.title }}" class="card-img-top" style="height: 200px; object-fit: cover;">
-                    {% else %}
-                        <img src="{{ default_photo }}" alt="No image available" class="card-img-top" style="height: 200px; object-fit: cover;">
-                    {% endif %}
-                </a>
-                <div class="card-body">
-                    <h5 class="card-title">{{ photo.title }}</h5>
-                    <p class="card-text">{{ photo.description }}</p>
-                    <div class="d-flex align-items-center">
-                        {% if photo.author.avatar %}
-                            <img src="{{ photo.author.avatar.url }}" alt="{{ photo.author.username }}" class="rounded-circle" style="width: 50px; height: 50px; margin-right: 10px;">
-                        {% else %}
-                            <img src="{{ default_image }}" alt="Default Avatar" class="rounded-circle" style="width: 50px; height: 50px; margin-right: 10px;">
-                        {% endif %}
-                        <span>{{ photo.author.username }}</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-</div>
+<h1>Галерея Фотографий</h1>
+<div id="photo-list" style="display: flex; flex-wrap: wrap; gap: 20px;"></div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<script>
+    function loadPhotos(params = {}) {
+        console.log('Загрузка фотографий с параметрами:', params);
+        $.ajax({
+            url: '/api/photos/',
+            method: 'GET',
+            data: params,
+            success: function(data) {
+                console.log('API Response data:', data);
+                $('#photo-list').empty();
+                if (Array.isArray(data)) {
+                    data.forEach(function(photo) {
+                        $('#photo-list').append(`
+                            <div class="photo" style="flex: 1 0 calc(25% - 20px); box-sizing: border-box;">
+                                <img src="${photo.image}" alt="${photo.title}" style="width: 100%; height: auto; border-radius: 10px;">
+                                <p>${photo.title}</p>
+                                <div class="author" style="display: flex; align-items: center; margin-top: 10px;">
+                                    <img src="${photo.author.avatar}" alt="${photo.author.username}" style="width: 40px; height: 40px; border-radius: 50%; margin-right: 10px;">
+                                    <span>${photo.author.username}</span>
+                                </div>
+                                <div class="likes-comments">
+                                    <p>Лайков: ${photo.votes.length}</p>
+                                    <p>Комментарии: ${photo.comments.length}</p>
+                                </div>
+                            </div>
+                        `);
+                    });
+                } else {
+                    $('#photo-list').html('<p>Нет доступных фотографий.</p>');
+                }
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                console.error('Ошибка при получении данных с API:', textStatus, errorThrown);
+                $('#photo-list').html('<p>Ошибка при получении данных</p>');
+            }
+        });
+    }
+
+    $(document).ready(function() {
+        loadPhotos();
+    });
+</script>
 {% endblock %}

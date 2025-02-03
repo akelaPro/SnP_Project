@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
+from datetime import timedelta
 import os
 from pathlib import Path
 from decouple import config
@@ -174,23 +175,33 @@ LOGOUT_REDIRECT_URL = 'galery:home'
 ASGI_APPLICATION = 'snpProject.asgi.application'
 
 REST_FRAMEWORK = {
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
-    ],
-    'DEFAULT_AUTHENTICATION_CLASSES': [
+    'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
     ],
 }
 
-
+SIMPLE_JWT = {
+    'AUTH_HEADER_TYPES': ('JWT',),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+}
 
 DJOSER = {
+    'LOGIN_FIELD': 'email',
     'USER_CREATE_PASSWORD_RETYPE': True,
-    'TOKEN_MODEL': 'rest_framework_simplejwt.tokens.AccessToken',
     'SERIALIZERS': {
-        'user_create': 'accounts.serializers.CreateSerializer',  # Исправлено
-        'user': 'accounts.serializers.Serializer',  # Исправлено
+        'user_create': 'accounts.serializers.UserCreateSerializer',
+        'user': 'accounts.serializers.UserSerializer',
+        'current_user': 'accounts.serializers.UserSerializer',
     },
+    'PERMISSIONS': {
+        'user_list': ['rest_framework.permissions.IsAdminUser'],
+        'user': ['rest_framework.permissions.IsAuthenticated'],
+    }
 }
 
 

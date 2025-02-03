@@ -1,22 +1,62 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+{% extends 'base.html' %}
+
+{% block content %}
     <title>Login</title>
-</head>
-<body>
     <h1>Login</h1>
-    <form method="post">
+    <form id="login-form" method="post">
         {% csrf_token %}
-        {{ form.as_p }}
+        <input type="email" name="email" placeholder="Email" required>
+        <input type="password" name="password" placeholder="Password" required>
         <button type="submit">Login</button>
     </form>
-    {% if form.non_field_errors %}
-        <div class="error">
-            {{ form.non_field_errors }}
-        </div>
-    {% endif %}
+    <div id="error-message" class="error" style="display:none;"></div>
     <p>Нет аккаунта? <a href="{% url 'accounts:registration' %}">Зарегистрироваться</a></p>
-</body>
-</html>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        // Функция для получения CSRF-токена из cookies
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        $(document).ready(function() {
+    $('#login-form').on('submit', function(e) {
+        e.preventDefault();
+        const email = $('input[name="email"]').val();
+        const password = $('input[name="password"]').val();
+
+        $.ajax({
+            type: 'POST',
+            url: '{% url "accounts:token_obtain_pair" %}',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                username: email,
+                password: password
+            }),
+            success: function(response) {
+                localStorage.setItem('access_token', response.access);
+                localStorage.setItem('refresh_token', response.refresh);
+                window.location.href = '{% url "accounts:profile" %}';
+
+            },
+            error: function(xhr) {
+                $('#error-message').text(xhr.responseJSON.detail || 'Произошла ошибка').show();
+                console.error(xhr.responseJSON);  // Логирование полного ответа об ошибке для отладки
+            }
+        });
+    });
+});
+
+    </script>
+{% endblock %}
