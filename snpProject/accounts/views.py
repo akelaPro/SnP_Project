@@ -12,6 +12,7 @@ from galery.models import Photo
 from django.views.generic import TemplateView
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import CustomTokenObtainPairSerializer
+from django.views.decorators.csrf import csrf_exempt
 
 
 class RegistrationTemplateView(TemplateView):
@@ -66,5 +67,7 @@ class RegisterView(APIView):
 
 
 
-class CustomTokenObtainPairView(TokenObtainPairView):
-    serializer_class = CustomTokenObtainPairSerializer
+class CustomTokenObtainPairView(APIView):
+    @csrf_exempt
+    def post(self, request, *args, **kwargs):
+        return TokenObtainPairView.as_view()(request._request)

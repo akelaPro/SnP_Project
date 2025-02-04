@@ -35,6 +35,12 @@ class Photo(models.Model):
     def __str__(self):
         return self.title
 
+
+    def restore(self):
+        self.moderation = '2'  
+        self.deleted_at = None
+        self.save()
+
     class Meta:
         verbose_name = 'Фотография'
         verbose_name_plural = 'Фотографии'

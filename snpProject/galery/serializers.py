@@ -25,7 +25,7 @@ class UserSerializer(BaseUserSerializer):
 
 class PhotoSerializer(serializers.ModelSerializer):
     author = BaseUserSerializer(read_only=True)
-    comments = serializers.HyperlinkedRelatedField(many=True, read_only=True, view_name='comment-detail')
+    comments = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
     votes = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
     image = serializers.ImageField()
 

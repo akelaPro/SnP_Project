@@ -9,7 +9,8 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from django.utils import timezone
 from django.db.models import Count, Q
-
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 
 
 def home(request): 
@@ -17,7 +18,7 @@ def home(request):
 
 def photo_detail(request, pk):
     photo = get_object_or_404(Photo, pk=pk)
-    return render(request, 'galery/photo_detail.html', {'photo': photo})
+    return render(request, 'galery/photo.html', {'photo': photo})
   
 
 
@@ -73,6 +74,18 @@ class PhotoViewSet(BaseViewSet):
         serializer.save(author=self.request.user)
         self.notify_user(serializer.instance.author, f"Ваша фотография '{serializer.instance.title}' изменена.", 'photo_changed')
 
+    @api_view(['POST'])
+    @permission_classes([IsAuthenticated])
+    def restore_photo(request, pk):
+        try:
+            photo = Photo.objects.get(pk=pk, author=request.user, moderation='1')  # Assuming '1' is the status for 'deleted'
+        except Photo.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        photo.restore()
+
+        return Response(status=status.HTTP_200_OK)
+
 class CommentViewSet(BaseViewSet):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
@@ -86,6 +99,9 @@ class CommentViewSet(BaseViewSet):
         super().perform_update(serializer)
         photo = serializer.instance.photo
         self.notify_user(photo.author, f"Изменен комментарий на вашу фотографию '{photo.title}': {serializer.instance.text}", 'comment_changed')
+    
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
 
 class VoteViewSet(BaseViewSet):
     queryset = Vote.objects.all()

@@ -12,24 +12,34 @@
         $.ajax({
             url: '/api/photos/',
             method: 'GET',
-            data: params,
+            params,
             success: function(data) {
                 console.log('API Response data:', data);
                 $('#photo-list').empty();
                 if (Array.isArray(data)) {
                     data.forEach(function(photo) {
+                        const photoUrl = `/photo/${photo.id}/`;
+
                         $('#photo-list').append(`
-                            <div class="photo" style="flex: 1 0 calc(25% - 20px); box-sizing: border-box;">
-                                <img src="${photo.image}" alt="${photo.title}" style="width: 100%; height: auto; border-radius: 10px;">
-                                <p>${photo.title}</p>
-                                <div class="author" style="display: flex; align-items: center; margin-top: 10px;">
-                                    <img src="${photo.author.avatar}" alt="${photo.author.username}" style="width: 40px; height: 40px; border-radius: 50%; margin-right: 10px;">
-                                    <span>${photo.author.username}</span>
-                                </div>
-                                <div class="likes-comments">
-                                    <p>Лайков: ${photo.votes.length}</p>
-                                    <p>Комментарии: ${photo.comments.length}</p>
-                                </div>
+                            <div class="photo" style="flex: 1 0 calc(25% - 20px); box-sizing: border-box; background: #fff; border-radius: 10px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); overflow: hidden; height: 300px;">
+                                <a href="${photoUrl}" style="text-decoration: none; color: inherit; display: flex; flex-direction: column; height: 100%;">
+                                     <img src="${photo.image}" alt="${photo.title}" style="width: 100%; height: 70%; object-fit: cover; border-radius: 10px 10px 0 0;">
+                                    <div style="padding: 5px 10px; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between;">
+                                        <div>
+                                            <p style="font-weight: bold; margin: 0; font-size: 14px;">${photo.title}</p>
+                                        </div>
+                                        <div>
+                                            <div class="author" style="display: flex; align-items: center;">
+                                                <img src="${photo.author.avatar}" alt="${photo.author.username}" style="width: 25px; height: 25px; border-radius: 50%; margin-right: 5px;">
+                                                <span style="font-size: 12px;">${photo.author.username}</span>
+                                            </div>
+                                            <div class="likes-comments" style="font-size: 10px; color: #555;">
+                                                <p style="margin: 0;">Лайков: ${photo.votes.length}</p>
+                                                <p style="margin: 0;">Комментарии: ${photo.comments.length}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </a>
                             </div>
                         `);
                     });

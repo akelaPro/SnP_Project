@@ -40,63 +40,69 @@ $(document).ready(function() {
     });
 
     function loadPhotoDetails() {
-        // Запрос на получение деталей фотографии
-        $.get(`/api/photos/${photoId}/`)
-            .done(photo => {
-                $('#photo-title').text(photo.title);
-                $('#photo-image').attr('src', photo.image || '');
-                $('#photo-author').text(photo.author.username);
-                $('#photo-author-avatar').attr('src', photo.author.avatar || '');
-                $('#photo-description').text(photo.description);
-                $('#votes-count').text(photo.votes.length);
+    $.get(`/api/photos/${photoId}/`)
+        .done(photo => {
+            $('#photo-title').text(photo.title);
+            $('#photo-image').attr('src', photo.image || '');
+            $('#photo-author').text(photo.author.username);
+            $('#photo-author-avatar').attr('src', photo.author.avatar || '');
+            $('#photo-description').text(photo.description);
+            $('#votes-count').text(photo.votes.length);
 
-                // Определяем текущего пользователя
-                const currentUserId = request.user.id ;
+            // Загрузка комментариев
+            loadComments();
 
-                // Условие для отображения действий
-                if (photo.author.id === currentUserId) {
-                    let actions = photo.deleted_at ? 
-                        '<button class="btn btn-warning restore-photo">Восстановить</button>' : 
-                        '<button class="btn btn-danger delete-photo">Удалить</button>';
-                    $('#photo-actions').html(actions);
-                }
+            // Остальная часть кода...
+        })
+        .fail(console.error);
+}
 
-                // Загрузка комментариев
-                $.get(`/api/photos/${photoId}/comments/`)
-                    .done(comments => {
-                        $('#comments-list').html(
-                            comments.length ? 
-                            comments.map(c => `<li><strong>${c.author.username}:</strong> ${c.text}</li>`).join('') : 
-                            '<li>Нет комментариев</li>'
-                        );
-                    })
-                    .fail(console.error);
-            })
-            .fail(console.error);
-    }
+function loadComments() {
+    $.get(`/api/comments/?photo=${photoId}`)
+        .done(comments => {
+            const commentsList = $('#comments-list');
+            commentsList.empty(); // Очищаем список перед добавлением новых комментариев
+            comments.forEach(comment => {
+                commentsList.append(`<li>${comment.text} - ${comment.author.username}</li>`);
+            });
+        })
+        .fail(console.error);
+}
 
-    // Обработчик отправки комментария
-    $('#comment-form').submit(function(e) {
-        e.preventDefault();
-        const data = JSON.stringify({
-            text: $(this).find('textarea').val(),
-            photo: photoId
-        });
-
-        $.post('/api/comments/', data)
-            .done(loadPhotoDetails)
-            .fail(console.error);
+// Обработчик отправки комментария
+$('#comment-form').submit(function(e) {
+    e.preventDefault();
+    const data = JSON.stringify({
+        text: $(this).find('textarea').val(),
+        photo: photoId
     });
+
+    $.post('/api/comments/', data)
+        .done(() => {
+            loadPhotoDetails(); // Обновляем детали фотографии и комментарии
+            $(this).find('textarea').val(''); // Очищаем поле ввода
+        })
+        .fail(console.error);
+});
+
 
     // Обработчики действий
     $(document)
         .on('click', '.delete-photo', () => {
             $.ajax(`/api/photos/${photoId}/`, { method: 'DELETE' })
-                .done(() => location.reload());
+                .done(() => {
+                    alert('Фотография помечена на удаление.');
+                    location.reload();
+                })
+                .fail(console.error);
         })
         .on('click', '.restore-photo', () => {
-            $.post(`/api/photos/${photoId}/restore/`)
-                .done(() => location.reload());
+            $.post(`/galery/api/photos/${photoId}/restore/`) // Corrected URL
+                .done(() => {
+                    alert('Фотография восстановлена.');
+                    location.reload();
+                })
+                .fail(console.error);
         });
 
     loadPhotoDetails();
