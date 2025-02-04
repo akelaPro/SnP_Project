@@ -10,6 +10,8 @@ from .serializers import CreateSerializer, Serializer
 from django.contrib.auth import get_user_model
 from galery.models import Photo
 from django.views.generic import TemplateView
+from rest_framework_simplejwt.views import TokenObtainPairView
+from .serializers import CustomTokenObtainPairSerializer
 
 
 class RegistrationTemplateView(TemplateView):
@@ -60,3 +62,9 @@ class RegisterView(APIView):
             user = serializer.save()
             return Response({"user": serializer.data}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer

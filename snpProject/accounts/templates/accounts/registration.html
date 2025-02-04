@@ -1,60 +1,53 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    <h1>Регистрация</h1>
-    <form id="registration-form" method="post">
-        {% csrf_token %}
-        <label for="username">Имя пользователя:</label>
-        <input type="text" name="username" required><br>
-        
-        <label for="email">Email:</label>
-        <input type="email" name="email" required><br>
-        
-        <label for="password">Пароль:</label>
-        <input type="password" name="password" required><br>
-        
-        <button type="submit">Зарегистрироваться</button>
+<div class="container mt-5">
+    <h2>Регистрация</h2>
+    <form id="registrationForm">
+        <div class="mb-3">
+            <label for="username" class="form-label">Логин</label>
+            <input type="text" class="form-control" id="username" required>
+        </div>
+        <div class="mb-3">
+            <label for="email" class="form-label">Email</label>
+            <input type="email" class="form-control" id="email" required>
+        </div>
+        <div class="mb-3">
+            <label for="password" class="form-label">Пароль</label>
+            <input type="password" class="form-control" id="password" required>
+        </div>
+        <div class="mb-3">
+            <label for="avatar" class="form-label">Аватар</label>
+            <input type="file" class="form-control" id="avatar">
+        </div>
+        <button type="submit" class="btn btn-primary">Зарегистрироваться</button>
     </form>
-    <p>Уже есть аккаунт? <a href="{% url 'accounts:login' %}">Войти</a></p>
-    
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script>
-        $(document).ready(function() {
-            $('#registration-form').on('submit', function(event) {
-                event.preventDefault();
-                $.ajax({
-                    type: 'POST',
-                    url: '{% url "accounts:registration" %}',
-                    data: $(this).serialize(),
-                    success: function(response) {
-                        alert('Регистрация успешна!');
+</div>
 
-                        // Получение токена после регистрации
-                        $.ajax({
-                            type: 'POST',
-                            url: '{% url "accounts:token_obtain_pair" %}',
+<script>
+$(document).ready(function() {
+    $('#registrationForm').submit(function(e) {
+        e.preventDefault();
+        const formData = new FormData();
+        formData.append('username', $('#username').val());
+        formData.append('email', $('#email').val());
+        formData.append('password', $('#password').val());
+        formData.append('avatar', $('#avatar')[0].files[0]);
 
-                            data: {
-                                'username': response.user.username,
-                                'password': $('input[name="password"]').val()
-                            },
-                            success: function(tokenResponse) {
-                                // Сохраните токен в локальном хранилище или куки
-                                localStorage.setItem('access_token', tokenResponse.access);
-                                localStorage.setItem('refresh_token', tokenResponse.refresh);
-                                window.location.href = '{% url "accounts:login_template" %}'; // Перенаправление на страницу входа
-                            },
-                            error: function(xhr) {
-                                alert('Ошибка получения токена: ' + xhr.responseText);
-                            }
-                        });
-                    },
-                    error: function(xhr) {
-                        alert('Ошибка регистрации: ' + xhr.responseText);
-                    }
-                });
-            });
+        $.ajax({
+            url: '/api/auth/users/',
+            method: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function() {
+                window.location.href = '{% url "accounts:login_template" %}';
+            },
+            error: function(xhr) {
+                alert('Ошибка: ' + JSON.stringify(xhr.responseJSON));
+            }
         });
-    </script>
+    });
+});
+</script>
 {% endblock %}
-

@@ -1,21 +1,28 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.backends import BaseBackend
+from django.contrib.auth import authenticate
+import logging
 
+logger = logging.getLogger(__name__)  # Get a logger instance
 
 class EmailAuthBackend(BaseBackend):
     def authenticate(self, request, username=None, password=None, **kwargs):
-        user_model = get_user_model()
+        UserModel = get_user_model()
         try:
-            user = user_model.objects.get(email=username)
+            user = UserModel.objects.get(email=username)
             if user.check_password(password):
+                logger.info(f"Authentication successful for user: {username}")  # Log successful authentication
                 return user
-            return None
-        except (user_model.DoesNotExist, user_model.MultipleObjectsReturned):
+            else:
+                logger.warning(f"Incorrect password for user: {username}")  # Log incorrect password attempt
+        except UserModel.DoesNotExist:
+            logger.warning(f"User with email {username} does not exist")  # Log user not found
             return None
 
     def get_user(self, user_id):
-        user_model = get_user_model()
+        UserModel = get_user_model()
         try:
-            return user_model.objects.get(pk=user_id)
-        except user_model.DoesNotExist:
+            return UserModel.objects.get(pk=user_id)
+        except UserModel.DoesNotExist:
+            logger.warning(f"User with id {user_id} does not exist")  # Log user not found
             return None
