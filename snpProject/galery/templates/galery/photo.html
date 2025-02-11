@@ -4,7 +4,6 @@
 <div class="container mt-4">
     <h1 id="photo-title"></h1>
     <img id="photo-image" class="img-fluid" style="max-height: 400px; object-fit: cover;">
-
     <p id="photo-description"></p>
     <p>Автор: <span id="photo-author"></span></p>
     <img id="photo-author-avatar" class="rounded-circle" style="width: 50px; height: 50px;">
@@ -22,16 +21,15 @@
     </form>
     {% endif %}
 
-    <div id="photo-actions"></div>
-    <h3 id="likes-count">Лайки: <span id="votes-count">0</span></h3>
-    <div id="like-button-container"></div>
+    <h3>Лайки: <span id="votes-count">0</span></h3>
+    <button id="like-button" class="btn btn-success">Поставить лайк</button>
+    <button id="unlike-button" class="btn btn-danger" style="display:none;">Убрать лайк</button>
 </div>
 
 <script>
 $(document).ready(function() {
     const photoId = window.location.pathname.split('/').filter(Boolean).pop();
-    
-    // Установка заголовков для AJAX-запросов
+
     $.ajaxSetup({
         headers: {
             'X-CSRFToken': '{{ csrf_token }}',
@@ -40,71 +38,82 @@ $(document).ready(function() {
     });
 
     function loadPhotoDetails() {
-    $.get(`/api/photos/${photoId}/`)
-        .done(photo => {
-            $('#photo-title').text(photo.title);
-            $('#photo-image').attr('src', photo.image || '');
-            $('#photo-author').text(photo.author.username);
-            $('#photo-author-avatar').attr('src', photo.author.avatar || '');
-            $('#photo-description').text(photo.description);
-            $('#votes-count').text(photo.votes.length);
+        $.get(`/api/photos/${photoId}/`)
+            .done(photo => {
+                $('#photo-title').text(photo.title);
+                $('#photo-image').attr('src', photo.image || '');
+                $('#photo-author').text(photo.author.username);
+                $('#photo-author-avatar').attr('src', photo.author.avatar || '');
+                $('#photo-description').text(photo.description);
+                $('#votes-count').text(photo.votes_count || 0);
 
-            // Загрузка комментариев
-            loadComments();
+                // Проверка, поставил ли пользователь лайк
+                if (photo.has_liked) {
+                    $('#like-button').hide();
+                    $('#unlike-button').show();
+                } else {
+                    $('#like-button').show();
+                    $('#unlike-button').hide();
+                }
 
-            // Остальная часть кода...
-        })
-        .fail(console.error);
-}
+                loadComments();
+            })
+            .fail(console.error);
+    }
 
-function loadComments() {
-    $.get(`/api/comments/?photo=${photoId}`)
-        .done(comments => {
-            const commentsList = $('#comments-list');
-            commentsList.empty(); // Очищаем список перед добавлением новых комментариев
-            comments.forEach(comment => {
-                commentsList.append(`<li>${comment.text} - ${comment.author.username}</li>`);
-            });
-        })
-        .fail(console.error);
-}
+    function loadComments() {
+        $.get(`/api/comments/?photo=${photoId}`)
+            .done(comments => {
+                const commentsList = $('#comments-list');
+                commentsList.empty();
+                comments.forEach(comment => {
+                    commentsList.append(`<li>${comment.text} - ${comment.author.username}</li>`);
+                });
+            })
+            .fail(console.error);
+    }
 
-// Обработчик отправки комментария
-$('#comment-form').submit(function(e) {
-    e.preventDefault();
-    const data = JSON.stringify({
-        text: $(this).find('textarea').val(),
-        photo: photoId
+    $('#comment-form').submit(function(e) {
+        e.preventDefault();
+        const data = JSON.stringify({
+            text: $(this).find('textarea').val(),
+            photo: photoId
+        });
+
+        $.post(`/api/comments/`, data)
+            .done(() => {
+                loadComments();
+                $(this).find('textarea').val(''); 
+            })
+            .fail(console.error);
     });
 
-    $.post('/api/comments/', data)
-        .done(() => {
-            loadPhotoDetails(); // Обновляем детали фотографии и комментарии
-            $(this).find('textarea').val(''); // Очищаем поле ввода
+    $('#like-button').click(function() {
+    const data = JSON.stringify({ photo: photoId }); // Преобразуем данные в JSON
+    $.post(`/api/votes/`, data, null, 'json') // Указываем, что ожидаем JSON
+        .done(response => {
+            const voteId = response.id; 
+            $('#votes-count').text(parseInt($('#votes-count').text()) + 1);
+            $(this).hide();
+            $('#unlike-button').show();
+            $('#unlike-button').data('voteId', voteId);
         })
         .fail(console.error);
 });
 
-
-    // Обработчики действий
-    $(document)
-        .on('click', '.delete-photo', () => {
-            $.ajax(`/api/photos/${photoId}/`, { method: 'DELETE' })
-                .done(() => {
-                    alert('Фотография помечена на удаление.');
-                    location.reload();
-                })
-                .fail(console.error);
-        })
-        .on('click', '.restore-photo', () => {
-            $.post(`/galery/api/photos/${photoId}/restore/`) // Corrected URL
-                .done(() => {
-                    alert('Фотография восстановлена.');
-                    location.reload();
-                })
-                .fail(console.error);
-        });
-
+    $('#unlike-button').click(function() {
+    const voteId = $(this).data('voteId'); 
+    $.ajax({
+        url: `/api/votes/${voteId}/`,
+        type: 'DELETE'
+    })
+    .done(() => {
+        $('#votes-count').text(parseInt($('#votes-count').text()) - 1);
+        $(this).hide();
+        $('#like-button').show();
+    })
+    .fail(console.error);
+});
     loadPhotoDetails();
 });
 </script>

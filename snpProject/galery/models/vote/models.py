@@ -18,3 +18,4 @@ class Vote(models.Model):
     class Meta:
         verbose_name = 'Лайк'
         verbose_name_plural = 'Лайки'
+        unique_together = ('author', 'photo')
