@@ -4,6 +4,7 @@
 <div class="container mt-5">
     <h2>Регистрация</h2>
     <form id="registrationForm">
+        {% csrf_token %}
         <div class="mb-3">
             <label for="username" class="form-label">Логин</label>
             <input type="text" class="form-control" id="username" required>
@@ -17,6 +18,10 @@
             <input type="password" class="form-control" id="password" required>
         </div>
         <div class="mb-3">
+            <label for="re_password" class="form-label">Повторите пароль</label>
+            <input type="password" class="form-control" id="re_password" required>
+        </div>
+        <div class="mb-3">
             <label for="avatar" class="form-label">Аватар</label>
             <input type="file" class="form-control" id="avatar">
         </div>
@@ -24,30 +29,72 @@
     </form>
 </div>
 
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
 $(document).ready(function() {
     $('#registrationForm').submit(function(e) {
         e.preventDefault();
+
+        const email = $('#email').val();
+        const password = $('#password').val();
+        const re_password = $('#re_password').val();
+        const username = $('#username').val();
+        const avatar = $('#avatar')[0].files[0];
+
+        if (password !== re_password) {
+            alert("Пароли не совпадают.");
+            return;
+        }
+
         const formData = new FormData();
-        formData.append('username', $('#username').val());
-        formData.append('email', $('#email').val());
-        formData.append('password', $('#password').val());
-        formData.append('avatar', $('#avatar')[0].files[0]);
+        formData.append('username', username);
+        formData.append('email', email);
+        formData.append('password', password);
+        if (avatar) {
+            formData.append('avatar', avatar);
+        }
 
         $.ajax({
-            url: '/api/auth/users/',
+            url: '/accounts/api/v1/auth/users/',  
             method: 'POST',
             data: formData,
             processData: false,
             contentType: false,
-            success: function() {
-                window.location.href = '{% url "accounts:login_template" %}';
+            headers: {
+                'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val()
             },
-            error: function(xhr) {
-                alert('Ошибка: ' + JSON.stringify(xhr.responseJSON));
+            success: function(data) {
+
+                const loginData = JSON.stringify({
+                    email: email,
+                    password: password
+                });
+
+                $.ajax({
+                    url: '/auth/token/login/', 
+                    method: 'POST',
+                    data: loginData, 
+                    contentType: 'application/json',
+                    headers: {
+                        'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val()
+                    },
+                    success: function(data) {
+
+                        localStorage.setItem('authToken', data.auth_token);
+
+                        window.location.href = '{% url "galery:home" %}';
+                    },
+                    error: function(jqXHR, textStatus, errorThrown) {
+                        alert('Ошибка при автоматической авторизации.');
+                    }
+                });
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                alert('Ошибка при регистрации.');
             }
         });
     });
 });
+
 </script>
 {% endblock %}

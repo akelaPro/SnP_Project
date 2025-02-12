@@ -89,8 +89,8 @@ $(document).ready(function() {
     });
 
     $('#like-button').click(function() {
-    const data = JSON.stringify({ photo: photoId }); // Преобразуем данные в JSON
-    $.post(`/api/votes/`, data, null, 'json') // Указываем, что ожидаем JSON
+    const data = JSON.stringify({ photo: photoId }); 
+    $.post(`/api/votes/`, data, null, 'json') 
         .done(response => {
             const voteId = response.id; 
             $('#votes-count').text(parseInt($('#votes-count').text()) + 1);

@@ -13,12 +13,14 @@ class BaseUserSerializer(serializers.ModelSerializer):
     def get_avatar(self, obj):
         if obj.avatar:
             return self.context['request'].build_absolute_uri(obj.avatar.url)
-        return settings.DEFAULT_USER_IMAGE
+        return self.context['request'].build_absolute_uri(settings.DEFAULT_USER_IMAGE)
+
 
     def get_avatar_thumbnail(self, obj):
-        if obj.avatar:
+        if obj.avatar_thumbnail:
             return self.context['request'].build_absolute_uri(obj.avatar_thumbnail.url)
-        return settings.DEFAULT_USER_IMAGE
+        return self.context['request'].build_absolute_uri(settings.DEFAULT_USER_IMAGE)
+
 
 class UserSerializer(BaseUserSerializer):
     pass  
@@ -28,7 +30,8 @@ class PhotoSerializer(serializers.ModelSerializer):
     comments = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
     votes = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
     image = serializers.ImageField()
-    has_liked = serializers.SerializerMethodField()  
+    has_liked = serializers.SerializerMethodField()
+
 
     class Meta:
         model = Photo
@@ -36,10 +39,13 @@ class PhotoSerializer(serializers.ModelSerializer):
         read_only_fields = ['published_at', 'deleted_at', 'moderation']
 
     def get_has_liked(self, obj): 
+        request = self.context.get('request')
         user = self.context['request'].user
         if user.is_authenticated:
             return obj.votes.filter(author=user).exists()
         return False
+    
+    
 
 class CommentSerializer(serializers.ModelSerializer):
     author = BaseUserSerializer(read_only=True)

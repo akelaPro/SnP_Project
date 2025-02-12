@@ -41,8 +41,9 @@ class UserPhotosAPIView(APIView):
 
     def get(self, request):
         photos = Photo.objects.filter(author=request.user)
-        serializer = PhotoSerializer(photos, many=True)
+        serializer = PhotoSerializer(photos, many=True, context={'request': request})  # Передаем контекст
         return Response(serializer.data)
+
 
 class UpdateUserProfileAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -56,18 +57,5 @@ class UpdateUserProfileAPIView(APIView):
         return Response(serializer.errors, status=400)
     
 
-class RegisterView(APIView):
-    def post(self, request):
-        serializer = CreateSerializer(data=request.data)
-        if serializer.is_valid():
-            user = serializer.save()
-            return Response({"user": serializer.data}, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-
-
-class CustomTokenObtainPairView(APIView):
-    @csrf_exempt
-    def post(self, request, *args, **kwargs):
-        return TokenObtainPairView.as_view()(request._request)

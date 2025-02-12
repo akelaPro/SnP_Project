@@ -1,13 +1,12 @@
-from django.urls import path, include
+from django.urls import path, include, re_path
 from rest_framework_simplejwt.views import TokenRefreshView
 from . import views
 
 app_name = 'accounts'
 
 urlpatterns = [
-    path('api/auth/', include('djoser.urls')),
-    path('api/auth/token/', views.CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/v1/auth/', include('djoser.urls')),  # new
+    re_path(r'^auth/', include('djoser.urls.authtoken')),
     path('profile/', views.UserProfileView.as_view(), name='profile'),
     path('api/user/profile/', views.UserProfileAPIView.as_view(), name='user_profile'),
     path('api/user/photos/', views.UserPhotosAPIView.as_view(), name='user_photos'),

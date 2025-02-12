@@ -102,6 +102,12 @@ class CommentViewSet(BaseViewSet):
     
     def retrieve(self, request, *args, **kwargs):
         return super().retrieve(request, *args, **kwargs)
+    
+    def get_queryset(self):
+        photo_id = self.request.query_params.get('photo')
+        if photo_id:
+            return self.queryset.filter(photo_id=photo_id)
+        return self.queryset
 
 class VoteViewSet(BaseViewSet):
     queryset = Vote.objects.all()

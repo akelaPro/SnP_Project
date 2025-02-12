@@ -26,38 +26,39 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
 $(document).ready(function() {
-    const accessToken = localStorage.getItem('access_token');
+    const accessToken = localStorage.getItem('authToken');
     if (!accessToken) {
         console.error('Токен доступа отсутствует');
         return;
     }
 
-    // Загрузка данных профиля
+
     $.ajax({
         url: '{% url "accounts:user_profile" %}',
         method: 'GET',
         headers: {
-            'Authorization': 'Bearer ' + accessToken
-        },
-        success: function(data) {
-            $('#profile-info').html(`
-                <img src="${data.avatar || '{{ default_image }}'}" alt="Avatar" class="img-fluid rounded-circle mb-3" style="width: 100px; height: 100px;">
-                <p>Логин: ${data.username}</p>
-                <p>Email: ${data.email}</p>
-                <button id="edit-profile" class="btn btn-primary">Редактировать</button>
-            `);
-        },
-        error: function(xhr) {
-            console.error('Ошибка при загрузке профиля:', xhr.responseText);
-        }
+        'Authorization': 'Token ' + accessToken 
+    },
+    success: function(data) {
+    const avatarUrl = data.avatar || '/media/avatars/default_avatr/default_avatar.png'; // Путь к изображению по умолчанию
+    $('#profile-info').html(`
+        <img src="${avatarUrl}" alt="Avatar" class="img-fluid rounded-circle mb-3" style="width: 100px; height: 100px;">
+        <p>Логин: ${data.username}</p>
+        <p>Email: ${data.email}</p>
+        <button id="edit-profile" class="btn btn-primary">Редактировать</button>
+    `);
+},
+
+error: function(xhr) {
+    console.error('Ошибка при загрузке профиля:', xhr.responseText);
+}
     });
 
-    // Загрузка фотографий
     $.ajax({
         url: '{% url "accounts:user_photos" %}',
         method: 'GET',
         headers: {
-            'Authorization': 'Bearer ' + accessToken
+            'Authorization': 'Token ' + accessToken
         },
         success: function(data) {
             let photosHtml = '';
@@ -66,7 +67,7 @@ $(document).ready(function() {
                     photosHtml += `
                         <div class="col-md-4 mb-4">
                             <div class="card">
-                                <a href="/galery/photo_detail/${photo.id}/">
+                                <a href="/photo/${photo.id}/">
                                     <img src="${photo.image}" alt="${photo.title}" class="card-img-top" style="max-height: 200px; object-fit: cover;">
                                 </a>
                                 <div class="card-body">
@@ -81,7 +82,7 @@ $(document).ready(function() {
             } else {
                 photosHtml = `<div class="col-12"><p>У вас нет загруженных фотографий.</p></div>`;
             }
-            $('#photos').html(photosHtml); // Обратите внимание на исправление id контейнера
+            $('#photos').html(photosHtml); 
         },
         error: function(xhr) {
             console.error('Ошибка при загрузке фотографий:', xhr.responseText);

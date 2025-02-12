@@ -45,7 +45,7 @@ INSTALLED_APPS = [
     'django_extensions',
     'rest_framework',
     'djoser',
-    'rest_framework_simplejwt',
+    'rest_framework.authtoken',
     'galery.apps.GaleryConfig',
     'channels',
     'channels_redis',
@@ -175,20 +175,23 @@ LOGOUT_REDIRECT_URL = 'galery:home'
 ASGI_APPLICATION = 'snpProject.asgi.application'
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
-    ),
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',
     ],
+
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',
+    ],
+
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.BasicAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ]
 }
 
-SIMPLE_JWT = {
-    'AUTH_HEADER_TYPES': ('Bearer',),
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-}
+
 
 DJOSER = {
     'LOGIN_FIELD': 'email',
@@ -201,7 +204,8 @@ DJOSER = {
     'PERMISSIONS': {
         'user_list': ['rest_framework.permissions.IsAdminUser'],
         'user': ['rest_framework.permissions.IsAuthenticated'],
-    }
+    },
+    #'TOKEN_MODEL': None,  # Use default Token model
 }
 
 

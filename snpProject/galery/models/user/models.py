@@ -12,7 +12,7 @@ class User(AbstractUser ):
 
     avatar_thumbnail = ImageSpecField(
         source='avatar',
-        processors=[ResizeToFill(100, 100)],  # Уменьшение до 100x100 пикселей
+        processors=[ResizeToFill(100, 100)], 
         format='PNG',
         options={'quality': 60}
     )
