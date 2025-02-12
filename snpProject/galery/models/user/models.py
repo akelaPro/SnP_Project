@@ -17,6 +17,9 @@ class User(AbstractUser ):
         options={'quality': 60}
     )
 
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['username']  
+
     def __str__(self):
         return self.email
 

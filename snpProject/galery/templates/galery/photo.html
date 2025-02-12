@@ -47,7 +47,7 @@ $(document).ready(function() {
                 $('#photo-description').text(photo.description);
                 $('#votes-count').text(photo.votes_count || 0);
 
-                // Проверка, поставил ли пользователь лайк
+
                 if (photo.has_liked) {
                     $('#like-button').hide();
                     $('#unlike-button').show();

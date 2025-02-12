@@ -6,8 +6,8 @@
     <form id="registrationForm">
         {% csrf_token %}
         <div class="mb-3">
-            <label for="username" class="form-label">Логин</label>
-            <input type="text" class="form-control" id="username" required>
+            <label for="username" class="form-label">Username</label>
+            <input type="username" class="form-control" id="username" required>
         </div>
         <div class="mb-3">
             <label for="email" class="form-label">Email</label>
@@ -37,7 +37,7 @@ $(document).ready(function() {
 
         const email = $('#email').val();
         const password = $('#password').val();
-        const re_password = $('#re_password').val();
+        const re_password = $('#re_password').val(); // Добавлено
         const username = $('#username').val();
         const avatar = $('#avatar')[0].files[0];
 
@@ -50,6 +50,7 @@ $(document).ready(function() {
         formData.append('username', username);
         formData.append('email', email);
         formData.append('password', password);
+        formData.append('re_password', re_password); // Добавлено
         if (avatar) {
             formData.append('avatar', avatar);
         }
@@ -64,14 +65,13 @@ $(document).ready(function() {
                 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val()
             },
             success: function(data) {
-
                 const loginData = JSON.stringify({
                     email: email,
                     password: password
                 });
 
                 $.ajax({
-                    url: '/auth/token/login/', 
+                    url: '/accounts/auth/token/login/', 
                     method: 'POST',
                     data: loginData, 
                     contentType: 'application/json',
@@ -79,9 +79,7 @@ $(document).ready(function() {
                         'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val()
                     },
                     success: function(data) {
-
                         localStorage.setItem('authToken', data.auth_token);
-
                         window.location.href = '{% url "galery:home" %}';
                     },
                     error: function(jqXHR, textStatus, errorThrown) {
@@ -90,11 +88,12 @@ $(document).ready(function() {
                 });
             },
             error: function(jqXHR, textStatus, errorThrown) {
-                alert('Ошибка при регистрации.');
+                alert('Ошибка при регистрации: ' + jqXHR.responseText); // Добавлено для отладки
             }
         });
     });
 });
+
 
 </script>
 {% endblock %}

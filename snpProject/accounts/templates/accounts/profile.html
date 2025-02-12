@@ -40,7 +40,8 @@ $(document).ready(function() {
         'Authorization': 'Token ' + accessToken 
     },
     success: function(data) {
-    const avatarUrl = data.avatar || '/media/avatars/default_avatr/default_avatar.png'; // Путь к изображению по умолчанию
+  
+    const avatarUrl = data.avatar;
     $('#profile-info').html(`
         <img src="${avatarUrl}" alt="Avatar" class="img-fluid rounded-circle mb-3" style="width: 100px; height: 100px;">
         <p>Логин: ${data.username}</p>

@@ -157,7 +157,7 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 AUTH_USER_MODEL = 'galery.User'
-
+#'/home/admin/Рабочий стол/SnP_Project/snpProject/media/avatars/default_avatr/default_avatar.png'
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 

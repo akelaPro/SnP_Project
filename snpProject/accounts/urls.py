@@ -1,6 +1,8 @@
 from django.urls import path, include, re_path
 from rest_framework_simplejwt.views import TokenRefreshView
 from . import views
+from django.conf import settings
+from django.conf.urls.static import static
 
 app_name = 'accounts'
 
@@ -14,3 +16,6 @@ urlpatterns = [
     path('login/', views.LoginTemplateView.as_view(), name='login_template'),
     path('register/', views.RegistrationTemplateView.as_view(), name='registration_template'),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

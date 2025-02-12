@@ -41,7 +41,7 @@ class UserPhotosAPIView(APIView):
 
     def get(self, request):
         photos = Photo.objects.filter(author=request.user)
-        serializer = PhotoSerializer(photos, many=True, context={'request': request})  # Передаем контекст
+        serializer = PhotoSerializer(photos, many=True, context={'request': request})  
         return Response(serializer.data)
 
 

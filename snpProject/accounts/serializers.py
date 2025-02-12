@@ -8,18 +8,19 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 
 # accounts/serializers.py
-class CreateSerializer(UserCreateSerializer): 
+class CreateSerializer(UserCreateSerializer):
     class Meta(UserCreateSerializer.Meta):
         model = get_user_model()
-        fields = ('id', 'username', 'email', 'password', 'avatar')
+        fields = ('id', 'email', 'password', 'avatar')
         extra_kwargs = {
-            'username': {'required': False} 
+            'password': {'write_only': True}
         }
 
     def create(self, validated_data):
-        if not validated_data.get('username'):
-            validated_data['username'] = validated_data['email'].split('@')[0]
+
+        validated_data.setdefault('username', validated_data['email'].split('@')[0])
         return super().create(validated_data)
+
 
 class Serializer(UserSerializer):  
     class Meta(UserSerializer.Meta):
