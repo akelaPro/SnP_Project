@@ -20,42 +20,50 @@
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
-$(document).ready(function() {
-    $('#loginForm').submit(function(e) {
-        e.preventDefault();
-
-        const email = $('#email').val();
-        const password = $('#password').val();
-
-        const data = JSON.stringify({
-            email: email,
-            password: password
-        });
-
-        $.ajax({
-            url: '/API/auth/token/login/',
-            method: 'POST',
-            contentType: 'application/json',
-            dataType: 'json',
-            data,
-
-            headers: {
-                'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val()
-            },
-            success: function(data) {
-                console.log("Токен после входа:", data.auth_token); 
-                if (data.auth_token) {
-                    localStorage.setItem('authToken', data.auth_token);
-                    window.location.href = '{% url "galery:home" %}';
-                } else {
-                    alert('Не удалось получить токен.');
+    $(document).ready(function() {
+        $('#loginForm').submit(function(e) {
+            e.preventDefault();
+    
+            const email = $('#email').val();
+            const password = $('#password').val();
+    
+            const data = JSON.stringify({
+                email: email,
+                password: password
+            });
+    
+            $.ajax({
+                url: '/API/auth/token/login/',
+                method: 'POST',
+                contentType: 'application/json',
+                dataType: 'json',
+                data,
+    
+                headers: {
+                    'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val()
+                },
+                success: function(data) {
+                    console.log("Токен после входа:", data.auth_token); 
+                    if (data.auth_token) {
+                        localStorage.setItem('authToken', data.auth_token);
+                        window.location.href = '{% url "galery:home" %}';
+                    } else {
+                        alert('Не удалось получить токен.');
                     }
                 },
-            error: function(jqXHR, textStatus, errorThrown) {
-                alert('Ошибка при авторизации.');
-            }
+                error: function(jqXHR, textStatus, errorThrown) {
+                    alert('Ошибка при авторизации.');
+                }
+            });
         });
     });
-});
-</script>
+    
+    $(document).ajaxSend(function(event, xhr, settings) {
+        const token = localStorage.getItem('authToken');
+        if (token) {
+            xhr.setRequestHeader('Authorization', 'Token ' + token);
+        }
+    });
+    </script>
+    
 {% endblock %}
