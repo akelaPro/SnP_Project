@@ -1,19 +1,18 @@
 from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path, include
-from rest_framework import routers
-from galery.views import PhotoViewSet, CommentViewSet, VoteViewSet, home, photo_detail
-router = routers.DefaultRouter()
-router.register(r'api/photos', PhotoViewSet, basename='photo')
-router.register(r'api/comments', CommentViewSet, basename='comment')
-router.register(r'api/votes', VoteViewSet, basename='vote')
+from galery import views
+from galery.views import home, photo_detail
+
 
 app_name = 'galery'
 
 urlpatterns = [
     path('', home, name='home'),
     path('photo/<int:pk>/', photo_detail, name='photo_detail'),
-    path('', include(router.urls)),
+    path('profile/', views.UserProfileView.as_view(), name='profile'),
+    path('login/', views.LoginTemplateView.as_view(), name='login_template'),
+    path('register/', views.RegistrationTemplateView.as_view(), name='registration_template'),
 ]
 
 

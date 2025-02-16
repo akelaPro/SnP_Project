@@ -10,7 +10,7 @@
     function loadPhotos(params = {}) {
         console.log('Загрузка фотографий с параметрами:', params);
         $.ajax({
-            url: '/api/photos/',
+            url: '/API/api/photos/',
             method: 'GET',
             params,
             success: function(data) {

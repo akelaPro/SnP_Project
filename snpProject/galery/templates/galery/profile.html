@@ -34,7 +34,7 @@ $(document).ready(function() {
 
 
     $.ajax({
-        url: '{% url "accounts:user_profile" %}',
+        url: '{% url "API:user_profile" %}',
         method: 'GET',
         headers: {
         'Authorization': 'Token ' + accessToken 
@@ -56,7 +56,7 @@ error: function(xhr) {
     });
 
     $.ajax({
-        url: '{% url "accounts:user_photos" %}',
+        url: '{% url "API:user_photos" %}',
         method: 'GET',
         headers: {
             'Authorization': 'Token ' + accessToken

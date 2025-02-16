@@ -49,7 +49,7 @@ INSTALLED_APPS = [
     'galery.apps.GaleryConfig',
     'channels',
     'channels_redis',
-    'accounts.apps.AccountsConfig',
+    'API.apps.ApiConfig',
     'notification.apps.NotificationConfig',
     
 ]
@@ -167,7 +167,7 @@ DEFAULT_USER_IMAGE = MEDIA_URL + 'avatars/default_avatr/default_avatar.png'
 
 DEFAULT_PHOTO_IMAGE = MEDIA_URL + 'images/default_image.jpg'
 
-LOGIN_URL = '/accounts:login/'
+LOGIN_URL = '/galery:login/'
 LOGIN_REDIRECT_URL = 'galery:home'
 LOGOUT_REDIRECT_URL = 'galery:home'
 
@@ -197,9 +197,9 @@ DJOSER = {
     'LOGIN_FIELD': 'email',
     'USER_CREATE_PASSWORD_RETYPE': True,
     'SERIALIZERS': {
-        'user_create': 'accounts.serializers.CreateSerializer',
-        'user': 'accounts.serializers.UserSerializer',
-        'current_user': 'accounts.serializers.UserSerializer',
+        'user_create': 'API.serializers.CreateSerializer',
+        'user': 'API.serializers.UserSerializer',
+        'current_user': 'API.serializers.UserSerializer',
     },
     'PERMISSIONS': {
         'user_list': ['rest_framework.permissions.IsAdminUser'],
@@ -211,5 +211,5 @@ DJOSER = {
 
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
-    'accounts.authentication.EmailAuthBackend',
+    'API.authentication.EmailAuthBackend',
 ]

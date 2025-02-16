@@ -1,31 +1,12 @@
-from django.shortcuts import render
-from django.views import View
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework import status
-from accounts.forms import UserRegistrationForm
-from galery.serializers import PhotoSerializer
-from .serializers import CreateSerializer, Serializer
+from API.serializers import *
 from django.contrib.auth import get_user_model
 from galery.models import Photo
-from django.views.generic import TemplateView
-from rest_framework_simplejwt.views import TokenObtainPairView
-from .serializers import CustomTokenObtainPairSerializer
-from django.views.decorators.csrf import csrf_exempt
 
 
-class RegistrationTemplateView(TemplateView):
-    template_name = 'accounts/registration.html'
 
-
-class LoginTemplateView(TemplateView):
-    template_name = 'accounts/login.html'
-
-
-class UserProfileView(View):
-    def get(self, request):
-        return render(request, 'accounts/profile.html', {})
 
 
 class UserProfileAPIView(APIView):
@@ -55,7 +36,3 @@ class UpdateUserProfileAPIView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=400)
-    
-
-
-

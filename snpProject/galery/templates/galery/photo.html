@@ -36,9 +36,9 @@ $(document).ready(function() {
             'Content-Type': 'application/json'
         }
     });
-
+    
     function loadPhotoDetails() {
-        $.get(`/api/photos/${photoId}/`)
+        $.get(`/API/api/photos/${photoId}/`)
             .done(photo => {
                 $('#photo-title').text(photo.title);
                 $('#photo-image').attr('src', photo.image || '');
@@ -62,7 +62,7 @@ $(document).ready(function() {
     }
 
     function loadComments() {
-        $.get(`/api/comments/?photo=${photoId}`)
+        $.get(`/API/api/comments/?photo=${photoId}`)
             .done(comments => {
                 const commentsList = $('#comments-list');
                 commentsList.empty();
@@ -80,7 +80,7 @@ $(document).ready(function() {
             photo: photoId
         });
 
-        $.post(`/api/comments/`, data)
+        $.post(`/API/api/comments/`, data)
             .done(() => {
                 loadComments();
                 $(this).find('textarea').val(''); 
@@ -90,7 +90,7 @@ $(document).ready(function() {
 
     $('#like-button').click(function() {
     const data = JSON.stringify({ photo: photoId }); 
-    $.post(`/api/votes/`, data, null, 'json') 
+    $.post(`/API/api/votes/`, data, null, 'json') 
         .done(response => {
             const voteId = response.id; 
             $('#votes-count').text(parseInt($('#votes-count').text()) + 1);
@@ -104,7 +104,7 @@ $(document).ready(function() {
     $('#unlike-button').click(function() {
     const voteId = $(this).data('voteId'); 
     $.ajax({
-        url: `/api/votes/${voteId}/`,
+        url: `/API/api/votes/${voteId}/`,
         type: 'DELETE'
     })
     .done(() => {

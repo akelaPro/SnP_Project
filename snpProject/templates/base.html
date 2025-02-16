@@ -23,7 +23,7 @@
                         <a class="nav-link" href="{% url 'notification:notification_list' %}">Уведомления</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'accounts:profile' %}">Профиль</a>
+                            <a class="nav-link" href="{% url 'galery:profile' %}">Профиль</a>
                         </li>
                         <li class="nav-item" id="auth-links">
                             <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
@@ -32,10 +32,10 @@
                         </li>
                     {% else %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'accounts:login_template' %}">Войти</a>
+                            <a class="nav-link" href="{% url 'galery:login_template' %}">Войти</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'accounts:registration_template' %}">Регистрация</a>
+                            <a class="nav-link" href="{% url 'galery:registration_template' %}">Регистрация</a>
                         </li>
                         {% endif %}
                     </div>
@@ -68,7 +68,7 @@ function logout(event) {
     event.preventDefault();
     console.log('Logout initiated');
     $.ajax({
-        url: '/accounts/auth/token/logout/',
+        url: '/API/auth/token/logout/',
         method: 'POST',
         headers: {
             'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val()
@@ -78,10 +78,10 @@ function logout(event) {
             localStorage.removeItem('authToken');
             $('#auth-links').html(`
                 <li class="nav-item">
-                    <a class="nav-link" href="{% url 'accounts:login_template' %}">Войти</a>
+                    <a class="nav-link" href="{% url 'galery:login_template' %}">Войти</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="{% url 'accounts:registration_template' %}">Регистрация</a>
+                    <a class="nav-link" href="{% url 'galery:registration_template' %}">Регистрация</a>
                 </li>
             `);
             location.reload();

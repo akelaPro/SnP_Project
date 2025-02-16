@@ -56,7 +56,7 @@ $(document).ready(function() {
         }
 
         $.ajax({
-            url: '/accounts/api/v1/auth/users/',  
+            url: '/API/api/v1/auth/users/',  
             method: 'POST',
             data: formData,
             processData: false,
@@ -71,7 +71,7 @@ $(document).ready(function() {
                 });
 
                 $.ajax({
-                    url: '/accounts/auth/token/login/', 
+                    url: '/API/auth/token/login/', 
                     method: 'POST',
                     data: loginData, 
                     contentType: 'application/json',
