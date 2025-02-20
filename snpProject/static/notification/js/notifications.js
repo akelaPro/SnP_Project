@@ -1,5 +1,12 @@
 $(document).ready(function() {
-    const socket = new WebSocket('ws://127.0.0.1:8000/ws/notifications/');
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+        alert("Пожалуйста, войдите в систему, чтобы видеть уведомления.");
+        window.location.href = '/login/'; 
+        return;
+    }
+
+    const socket = new WebSocket(`ws://127.0.0.1:8000/ws/notifications/?token=${token}`);
 
     socket.onmessage = function(e) {
         const data = JSON.parse(e.data);
@@ -25,6 +32,6 @@ $(document).ready(function() {
     }
 
     window.closeNotification = function(button) {
-        $(button).parent().remove(); // Удаляем элемент уведомления
+        $(button).parent().remove(); 
     };
 });

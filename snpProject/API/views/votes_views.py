@@ -3,31 +3,33 @@ from rest_framework import status
 from .photos_vews import BaseViewSet
 from galery.models import Vote
 from API.serializers import *
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
 
 class VoteViewSet(BaseViewSet):
     queryset = Vote.objects.all()
     serializer_class = VoteSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def create(self, request, *args, **kwargs):
-        photo_id = request.data.get('photo')
-        if not photo_id:
-            return Response({'detail': 'photo ID is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if self.request.user.is_authenticated:
+            photo_id = request.data.get('photo')
+            if not photo_id:
+                return Response({'detail': 'photo ID is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if Vote.objects.filter(author=request.user, photo_id=photo_id).exists():
-            return Response(
-            {'detail': 'Вы уже поставили лайк этой фотографии.'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    
-    
-        return super().create(request, *args, **kwargs)
+            if Vote.objects.filter(author=request.user, photo_id=photo_id).exists():
+                return Response(
+                    {'detail': 'Вы уже поставили лайк этой фотографии.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
-
+        # Создание нового лайка
+            vote = Vote.objects.create(author=request.user, photo_id=photo_id)
+            serializer = self.get_serializer(vote)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def destroy(self, request, *args, **kwargs):
+        # Получение объекта лайка по ID
         vote = self.get_object()
         if vote.author != request.user:
             return Response(

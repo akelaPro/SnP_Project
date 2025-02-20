@@ -11,32 +11,69 @@
     <h3>Комментарии:</h3>
     <ul class="list-unstyled" id="comments-list"></ul>
 
-    {% if user.is_authenticated %}
-    <form id="comment-form" class="mb-4">
-        {% csrf_token %}
-        <div class="form-group">
-            <textarea name="text" class="form-control" required placeholder="Добавьте комментарий..."></textarea>
-        </div>
-        <button type="submit" class="btn btn-primary">Добавить комментарий</button>
-    </form>
-    {% endif %}
+    <div id="comment-section">
+        <form id="comment-form" class="mb-4" style="display: none;">
+            {% csrf_token %}
+            <div class="form-group">
+                <textarea name="text" class="form-control" required placeholder="Добавьте комментарий..."></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Добавить комментарий</button>
+        </form>
+        <p id="login-prompt-comment">Чтобы оставить комментарий, пожалуйста, <a href="{% url 'galery:login_template' %}">войдите</a> или <a href="{% url 'galery:registration_template' %}">зарегистрируйтесь</a>.</p>
+    </div>
 
     <h3>Лайки: <span id="votes-count">0</span></h3>
-    <button id="like-button" class="btn btn-success">Поставить лайк</button>
-    <button id="unlike-button" class="btn btn-danger" style="display:none;">Убрать лайк</button>
+    <div id="like-section">
+        <button id="like-button" class="btn btn-success" style="display: none;">Поставить лайк</button>
+        <button id="unlike-button" class="btn btn-danger" style="display:none;">Убрать лайк</button>
+        <p id="login-prompt-like">Чтобы поставить лайк, пожалуйста, <a href="{% url 'galery:login_template' %}">войдите</a> или <a href="{% url 'galery:registration_template' %}">зарегистрируйтесь</a>.</p>
+    </div>
 </div>
 
 <script>
 $(document).ready(function() {
     const photoId = window.location.pathname.split('/').filter(Boolean).pop();
+    let authToken = localStorage.getItem('authToken');
+
+    const commentForm = $('#comment-form');
+    const likeButton = $('#like-button');
+    const unlikeButton = $('#unlike-button');
+    const loginPromptComment = $('#login-prompt-comment');
+    const loginPromptLike = $('#login-prompt-like');
 
     $.ajaxSetup({
         headers: {
             'X-CSRFToken': '{{ csrf_token }}',
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': authToken ? `Token ${authToken}` : ''
         }
     });
-    
+
+    function updateAuthUI() {
+        authToken = localStorage.getItem('authToken'); // Обновляем токен
+        if (authToken) {
+            commentForm.show();
+            likeButton.show();
+            loginPromptComment.hide();
+            loginPromptLike.hide();
+        } else {
+            commentForm.hide();
+            likeButton.hide();
+            unlikeButton.hide(); // Ensure unlike is hidden too
+            loginPromptComment.show();
+            loginPromptLike.show();
+        }
+
+        // Update AJAX headers after checking auth state:
+        $.ajaxSetup({
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json',
+                'Authorization': authToken ? `Token ${authToken}` : ''
+            }
+        });
+    }
+
     function loadPhotoDetails() {
         $.get(`/API/api/photos/${photoId}/`)
             .done(photo => {
@@ -47,14 +84,14 @@ $(document).ready(function() {
                 $('#photo-description').text(photo.description);
                 $('#votes-count').text(photo.votes_count || 0);
 
-
-                if (photo.has_liked) {
-                    $('#like-button').hide();
-                    $('#unlike-button').show();
-                } else {
-                    $('#like-button').show();
-                    $('#unlike-button').hide();
-                }
+                // Visibility of like/unlike buttons is now controlled by updateAuthUI
+                //if (photo.has_liked) {
+                //    likeButton.hide();
+                //    unlikeButton.show();
+                //} else {
+                //    likeButton.show();
+                //    unlikeButton.hide();
+                //}
 
                 loadComments();
             })
@@ -83,38 +120,47 @@ $(document).ready(function() {
         $.post(`/API/api/comments/`, data)
             .done(() => {
                 loadComments();
-                $(this).find('textarea').val(''); 
+                $(this).find('textarea').val('');
             })
             .fail(console.error);
     });
 
     $('#like-button').click(function() {
-    const data = JSON.stringify({ photo: photoId }); 
-    $.post(`/API/api/votes/`, data, null, 'json') 
-        .done(response => {
-            const voteId = response.id; 
-            $('#votes-count').text(parseInt($('#votes-count').text()) + 1);
-            $(this).hide();
-            $('#unlike-button').show();
-            $('#unlike-button').data('voteId', voteId);
-        })
-        .fail(console.error);
-});
+        const data = JSON.stringify({ photo: photoId });
+        $.post(`/API/api/votes/`, data, null, 'json')
+            .done(response => {
+                const voteId = response.id;
+                $('#votes-count').text(parseInt($('#votes-count').text()) + 1);
+                $(this).hide();
+                $('#unlike-button').show();
+                $('#unlike-button').data('voteId', voteId);
+            })
+            .fail(console.error);
+    });
 
     $('#unlike-button').click(function() {
-    const voteId = $(this).data('voteId'); 
-    $.ajax({
-        url: `/API/api/votes/${voteId}/`,
-        type: 'DELETE'
-    })
-    .done(() => {
-        $('#votes-count').text(parseInt($('#votes-count').text()) - 1);
-        $(this).hide();
-        $('#like-button').show();
-    })
-    .fail(console.error);
-});
+        const voteId = $(this).data('voteId');
+        $.ajax({
+            url: `/API/api/votes/${voteId}/`,
+            type: 'DELETE'
+        })
+        .done(() => {
+            $('#votes-count').text(parseInt($('#votes-count').text()) - 1);
+            $(this).hide();
+            $('#like-button').show();
+        })
+        .fail(console.error);
+    });
+
     loadPhotoDetails();
+    updateAuthUI();
+
+    // Listen for changes in localStorage (e.g., after login/logout)
+    window.addEventListener('storage', function(event) {
+        if (event.key === 'authToken') {
+            updateAuthUI();
+        }
+    });
 });
 </script>
 {% endblock %}

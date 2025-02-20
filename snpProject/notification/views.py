@@ -38,7 +38,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
         notification_type = 'mass_notification'
         channel_layer = get_channel_layer()
         
-        # Создаем уведомление для всех пользователей
+       
         users = get_user_model().objects.all()
         for user in users:
             notification = Notification.objects.create(user=user, message=message, notification_type=notification_type)
