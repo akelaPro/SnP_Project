@@ -17,92 +17,63 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarSupportedContent">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    {% if user.is_authenticated %}
-                        <li class="nav-item">
-                        <a class="nav-link" href="{% url 'notification:notification_list' %}">Уведомления</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'galery:profile' %}">Профиль</a>
-                        </li>
-                        <li class="nav-item" id="auth-links">
-                            <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
-                            <button onclick="logout(event)" class="btn btn-link">Выйти</button>
-
-                        </li>
-                    {% else %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'galery:login_template' %}">Войти</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'galery:registration_template' %}">Регистрация</a>
-                        </li>
-                        {% endif %}
-                    </div>
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0" id="auth-links">
+                
                 </ul>
     
                 <form class="d-flex" role="search" method="get" action="{% url 'galery:home' %}">
-                    <input class="form-control me-2" type="search" name="search" placeholder="Поиск" aria-label="Поиск" value="{{ request.GET.search }}">
-                    <select name="sort" class="form-select me-2">  
-                        <option value="">--Сортировать по--</option>
-                        <option value="votes" {% if request.GET.sort == 'votes' %}selected{% endif %}>По количеству голосов</option>
-                        <option value="date" {% if request.GET.sort == 'date' %}selected{% endif %}>По дате добавления</option>
-                        <option value="comments" {% if request.GET.sort == 'comments' %}selected{% endif %}>По количеству комментариев</option>
-                    </select>
+                    <input class="form-control me-2" type="search" name="search" placeholder="Поиск" aria-label="Search">
                     <button class="btn btn-outline-success" type="submit">Поиск</button>
                 </form>
             </div>
         </div>
     </nav>
-    
-    <div class="container mt-4">
+
+    <script>
+        $(document).ready(function() {
+         
+            const token = localStorage.getItem('authToken');
+            
+            if (token) {
+                
+                $('#auth-links').html(`
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'notification:notification_list' %}">Уведомления</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'galery:profile' %}">Профиль</a>
+                    </li>
+                    <li class="nav-item" id="auth-links">
+                        <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+                        <button onclick="logout(event)" class="btn btn-link">Выйти</button>
+                    </li>
+                `);
+            } else {
+               
+                $('#auth-links').html(`
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'galery:login_template' %}">Войти</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'galery:registration_template' %}">Регистрация</a>
+                    </li>
+                `);
+            }
+        });
+
+        function logout(event) {
+            event.preventDefault();
+            localStorage.removeItem('authToken'); 
+            window.location.reload();
+        }
+    </script>
+
+
+    <div class="container">
         {% block content %}
         {% endblock %}
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{% static 'notification/js/notifications.js' %}"></script>
-    <script>
-$(document).ajaxSend(function(event, xhr, settings) {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-        xhr.setRequestHeader('Authorization', 'Token ' + token);
-    }
-});
-
-
-function logout(event) {
-    event.preventDefault();
-    console.log('Logout initiated');
-    $.ajax({
-        url: '/API/auth/token/logout/',
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val()
-        },
-        success: function() {
-            console.log('Logout successful');
-            localStorage.removeItem('authToken');
-            $('#auth-links').html(`
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'galery:login_template' %}">Войти</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'galery:registration_template' %}">Регистрация</a>
-                </li>
-            `);
-            location.reload();
-        },
-        error: function(jqXHR, textStatus, errorThrown) {
-            console.error('Ошибка при выходе:', jqXHR, textStatus, errorThrown);
-            alert('Ошибка при выходе.');
-        }
-    });
-}
-
-    </script>
-    
-        
 </body>
 </html>
