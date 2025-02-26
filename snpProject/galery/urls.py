@@ -12,6 +12,7 @@ urlpatterns = [
     path('photo/<int:pk>/', photo_detail, name='photo_detail'),
     path('profile/', views.UserProfileView.as_view(), name='profile'),
     path('login/', views.LoginTemplateView.as_view(), name='login_template'),
+    path('createphoto', views.CreatePhotoTemlate.as_view(), name='create_photo'),
     path('register/', views.RegistrationTemplateView.as_view(), name='registration_template'),
 ]
 

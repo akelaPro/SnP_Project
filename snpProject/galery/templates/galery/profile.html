@@ -11,6 +11,9 @@
                 <div class="card-body" id="profile-info">
                     <!-- Данные профиля будут загружены сюда -->
                 </div>
+                <div>
+                <p><a href="{% url 'galery:create_photo' %}">Добавить фото</a></p>
+                </div>
             </div>
         </div>
 
@@ -68,7 +71,7 @@ error: function(xhr) {
                     photosHtml += `
                         <div class="col-md-4 mb-4">
                             <div class="card">
-                                <a href="/photo/${photo.id}/">
+                                <a href="/galery/photo/${photo.id}/">
                                     <img src="${photo.image}" alt="${photo.title}" class="card-img-top" style="max-height: 200px; object-fit: cover;">
                                 </a>
                                 <div class="card-body">

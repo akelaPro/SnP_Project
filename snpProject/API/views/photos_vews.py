@@ -1,6 +1,9 @@
+from datetime import timedelta
+from django.shortcuts import get_object_or_404
 from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework import status
+from API.task import delete_photo
 from galery.models import Photo
 from notification.models import Notification
 from channels.layers import get_channel_layer
@@ -10,6 +13,12 @@ from django.db.models import Count, Q
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from API.serializers import *
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.decorators import action
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 class BaseViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
@@ -31,46 +40,76 @@ class BaseViewSet(viewsets.ModelViewSet):
         )
 
 class PhotoViewSet(BaseViewSet):
-    queryset = Photo.objects.filter(moderation='3')
+    queryset = Photo.objects.all()  
     serializer_class = PhotoSerializer
+    parser_classes = [MultiPartParser, FormParser]
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        search_query = self.request.query_params.get('search', '')
-        if search_query:
-            queryset = queryset.filter(
-                Q(title__icontains=search_query) | 
-                Q(description__icontains=search_query) | 
-                Q(author__username__icontains=search_query)
-            )
-        sort_option = self.request.query_params.get('sort', '')
-        if sort_option == 'votes':
-            queryset = queryset.annotate(vote_count=Count('votes')).order_by('-vote_count')
-        elif sort_option == 'date':
-            queryset = queryset.order_by('-published_at')
-        elif sort_option == 'comments':
-            queryset = queryset.annotate(comment_count=Count('comments')).order_by('-comment_count')
-        return queryset
 
-    def perform_destroy(self, instance):
-        if instance.author == self.request.user:
-            instance.moderation = '1'
-            instance.deleted_at = timezone.now()
-            instance.save
-        self.notify_user(instance.author, f"Ваша фотография '{instance.title}' помечена на удаление.", 'photo_deleted')
+        include_deleted = self.request.query_params.get('include_deleted', False)
 
-    def perform_update(self, serializer):
-        serializer.save(author=self.request.user)
-        self.notify_user(serializer.instance.author, f"Ваша фотография '{serializer.instance.title}' изменена.", 'photo_changed')
+        if self.request.user.is_authenticated and include_deleted == 'true':
+            return Photo.objects.filter(
+            Q(moderation='3') | Q(moderation='1', author=self.request.user)
+        )
+        else:
+            return Photo.objects.filter(moderation='3') | Photo.objects.filter(moderation='1', author=self.request.user)
 
-    @api_view(['POST'])
-    @permission_classes([IsAuthenticated])
-    def restore_photo(request, pk):
+
+    
+
+    @action(detail=True, methods=['post'])
+    def delete_photo(self, request, pk=None):
+        photo = get_object_or_404(Photo, id=pk)
+    
+        if photo.author != request.user:
+            return Response({'detail': 'У вас нет прав на удаление этой фотографии.'}, status=status.HTTP_403_FORBIDDEN)
+
+        photo.moderation = '1'
+        photo.deleted_at = timezone.now()
+        photo.save()
+    
+    # Передаем ID фото как аргумент задачи
+        delete_photo.apply_async(args=(photo.id,), countdown=120)  # Исправлено здесь
+    
+        serializer = self.get_serializer(photo)
+        self.notify_user(request.user, f"Фотография '{photo.title}' помечена на удаление.", 'photo_deleted')
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+    @action(detail=True, methods=['post'])
+    def restore_photo(self, request, pk=None):
+        logger.info(f"restore_photo called with pk={pk}, user={request.user}")
         try:
-            photo = Photo.objects.get(pk=pk, author=request.user, moderation='1')  # Assuming '1' is the status for 'deleted'
-        except Photo.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
+        # Используем self.get_object() без передачи pk
+            photo = self.get_object()  # Теперь метод автоматически использует pk из self.kwargs
+            logger.info(f"Photo found: {photo.id}, moderation={photo.moderation}, deleted_at={photo.deleted_at}")
 
-        photo.restore()
+        # Проверки прав доступа
+            if photo.author != request.user:
+                logger.warning("Permission denied.")
+                return Response({'detail': 'У вас нет прав на восстановление этой фотографии.'}, status=status.HTTP_403_FORBIDDEN)
 
-        return Response(status=status.HTTP_200_OK)
+        # Проверка состояния удаления
+            if photo.moderation != '1' or photo.deleted_at is None:
+                logger.warning(f"Photo not marked for deletion. moderation={photo.moderation}, deleted_at={photo.deleted_at}")
+                return Response({'detail': 'Фотография не помечена на удаление.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Проверка времени
+            if timezone.now() > photo.deleted_at + timezone.timedelta(seconds=60):
+                logger.warning("Restore time expired.")
+                return Response({'detail': 'Время для восстановления фотографии истекло.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Восстановление
+            photo.moderation = '2'
+            photo.deleted_at = None
+            photo.save()
+            serializer = self.get_serializer(photo)
+            logger.info("Photo restored successfully.")
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception(f"An error occurred: {e}")
+            return Response({'detail': 'Произошла ошибка при восстановлении фотографии.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

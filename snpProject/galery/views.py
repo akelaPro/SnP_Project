@@ -20,6 +20,9 @@ class LoginTemplateView(TemplateView):
     template_name = 'galery/login.html'
 
 
+class CreatePhotoTemlate(TemplateView):
+    template_name = 'galery/add_post.html'
+
 class UserProfileView(View):
     def get(self, request):
         return render(request, 'galery/profile.html', {})

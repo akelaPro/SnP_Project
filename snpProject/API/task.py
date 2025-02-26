@@ -1,7 +1,14 @@
-# galery/tasks.py
 from celery import shared_task
-from .models import Photo
 import os
+from galery.models import Photo
+
+import logging
+from celery import shared_task
+import os
+from galery.models import Photo
+
+
+
 @shared_task
 def delete_photo(photo_id):
     try:

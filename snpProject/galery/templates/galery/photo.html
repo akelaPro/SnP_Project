@@ -8,6 +8,12 @@
     <p>Автор: <span id="photo-author"></span></p>
     <img id="photo-author-avatar" class="rounded-circle" style="width: 50px; height: 50px;">
 
+    <div id="photo-actions" style="display: none;">
+        <button id="delete-photo-button" class="btn btn-danger">Удалить</button>
+        <button id="restore-photo-button" class="btn btn-success" style="display: none;">Восстановить</button>
+    </div>
+    <div id="timer"></div>
+
     <h3>Комментарии:</h3>
     <ul class="list-unstyled" id="comments-list"></ul>
 
@@ -40,6 +46,10 @@ $(document).ready(function() {
     const unlikeButton = $('#unlike-button');
     const loginPromptComment = $('#login-prompt-comment');
     const loginPromptLike = $('#login-prompt-like');
+    const deletePhotoButton = $('#delete-photo-button');
+    const restorePhotoButton = $('#restore-photo-button');
+    const photoActions = $('#photo-actions');
+    const timerDiv = $('#timer'); // Get the timer div
 
     $.ajaxSetup({
         headers: {
@@ -50,7 +60,7 @@ $(document).ready(function() {
     });
 
     function updateAuthUI() {
-        authToken = localStorage.getItem('authToken'); // Обновляем токен
+        authToken = localStorage.getItem('authToken');
         if (authToken) {
             commentForm.show();
             likeButton.show();
@@ -59,12 +69,11 @@ $(document).ready(function() {
         } else {
             commentForm.hide();
             likeButton.hide();
-            unlikeButton.hide(); // Ensure unlike is hidden too
+            unlikeButton.hide();
             loginPromptComment.show();
             loginPromptLike.show();
         }
 
-        // Update AJAX headers after checking auth state:
         $.ajaxSetup({
             headers: {
                 'X-CSRFToken': '{{ csrf_token }}',
@@ -75,8 +84,16 @@ $(document).ready(function() {
     }
 
     function loadPhotoDetails() {
-        $.get(`/API/api/photos/${photoId}/`)
-            .done(photo => {
+        console.log("photoId inside loadPhotoDetails:", photoId);
+        $.ajax({
+            url: `/api/photos/${photoId}/?include_deleted=true`,
+            method: 'GET',
+            headers: {
+                'Authorization': 'Token ' + authToken
+            },
+            success: function(photo) {
+                console.log('Photo data:', photo); // Log the entire photo object
+
                 $('#photo-title').text(photo.title);
                 $('#photo-image').attr('src', photo.image || '');
                 $('#photo-author').text(photo.author.username);
@@ -84,22 +101,67 @@ $(document).ready(function() {
                 $('#photo-description').text(photo.description);
                 $('#votes-count').text(photo.votes_count || 0);
 
-                // Visibility of like/unlike buttons is now controlled by updateAuthUI
-                //if (photo.has_liked) {
-                //    likeButton.hide();
-                //    unlikeButton.show();
-                //} else {
-                //    likeButton.show();
-                //    unlikeButton.hide();
-                //}
+                // Check if the current user can edit the photo
+                window.canEdit = photo.can_edit;
+                console.log('canEdit:', window.canEdit);
+                console.log('photo.moderation:', photo.moderation, 'photo.deleted_at:', photo.deleted_at);
+
+                // Now update the visibility of the delete/restore buttons
+                if (window.canEdit) {
+                    if (photo.moderation === '1' && photo.deleted_at) {
+                        deletePhotoButton.hide();
+                        restorePhotoButton.show();
+                    } else {
+                        deletePhotoButton.show();
+                        restorePhotoButton.hide();
+                    }
+                    photoActions.show();  // Make sure the actions container is visible
+                } else {
+                    photoActions.hide();  // Hide the actions container if not allowed
+                }
+
+                 // Timer logic
+                if (photo.moderation === '1') {
+                    const deletedAt = new Date(photo.deleted_at);
+                    const deleteTime = deletedAt.getTime() + 35000;
+
+                    const updateTimer = () => {
+                        const now = new Date().getTime();
+                        const remaining = deleteTime - now;
+
+                        if (remaining > 0) {
+                            const seconds = Math.floor(remaining / 1000);
+                            timerDiv.html(`
+                                <div class="alert alert-warning">
+                                    Фото будет удалено через ${seconds} сек.
+                                    <button id="cancel-delete" class="btn btn-sm btn-success">Отменить</button>
+                                </div>
+                            `);
+                        } else {
+                            timerDiv.html('<div class="alert alert-danger">Фото удалено</div>');
+                            clearInterval(timerInterval);
+                            deletePhotoButton.hide(); // Hide the button after deletion
+                            restorePhotoButton.hide();
+                        }
+                    };
+
+                    updateTimer();
+                    const timerInterval = setInterval(updateTimer, 1000);
+                } else {
+                    timerDiv.empty();
+                }
 
                 loadComments();
-            })
-            .fail(console.error);
+            },
+            error: function(xhr) {
+                console.error('Ошибка при загрузке фотографии:', xhr.responseText);
+                photoActions.hide();
+            }
+        });
     }
 
     function loadComments() {
-        $.get(`/API/api/comments/?photo=${photoId}`)
+        $.get(`/api/comments/?photo=${photoId}`)
             .done(comments => {
                 const commentsList = $('#comments-list');
                 commentsList.empty();
@@ -117,7 +179,7 @@ $(document).ready(function() {
             photo: photoId
         });
 
-        $.post(`/API/api/comments/`, data)
+        $.post(`/api/comments/`, data)
             .done(() => {
                 loadComments();
                 $(this).find('textarea').val('');
@@ -127,7 +189,7 @@ $(document).ready(function() {
 
     $('#like-button').click(function() {
         const data = JSON.stringify({ photo: photoId });
-        $.post(`/API/api/votes/`, data, null, 'json')
+        $.post(`/api/votes/`, data, null, 'json')
             .done(response => {
                 const voteId = response.id;
                 $('#votes-count').text(parseInt($('#votes-count').text()) + 1);
@@ -141,7 +203,7 @@ $(document).ready(function() {
     $('#unlike-button').click(function() {
         const voteId = $(this).data('voteId');
         $.ajax({
-            url: `/API/api/votes/${voteId}/`,
+            url: `/api/votes/${voteId}/`,
             type: 'DELETE'
         })
         .done(() => {
@@ -152,10 +214,55 @@ $(document).ready(function() {
         .fail(console.error);
     });
 
+    $('#delete-photo-button').click(function() {
+        $.ajax({
+            url: `/api/photos/${photoId}/delete_photo/`,
+            method: 'POST',
+            headers: {
+                'Authorization': 'Token ' + authToken,
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            success: function() {
+                window.location.href = '/galery/profile/';
+            },
+            error: function(xhr) {
+                console.error('Ошибка при удалении фотографии:', xhr.responseText);
+                alert('Ошибка при удалении фотографии.');
+            }
+        });
+    });
+
+    $('#restore-photo-button').click(function() {
+    $.ajax({
+        url: `/api/photos/${photoId}/restore_photo/`,
+        method: 'POST',
+        headers: {
+            'Authorization': 'Token ' + authToken,
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        success: function(response) {  // Получаем response
+            loadPhotoDetails(); // Обновляем детали после успешного восстановления
+        },
+        error: function(xhr) {
+            console.error('Ошибка при восстановлении фотографии:', xhr.responseText);
+            try {
+                const errorData = JSON.parse(xhr.responseText);
+                alert('Ошибка при восстановлении фотографии: ' + (errorData.detail || 'Неизвестная ошибка'));
+            } catch (e) {
+                alert('Ошибка при восстановлении фотографии: ' + xhr.responseText);
+            }
+        }
+    });
+});
+
+    $(document).on('click', '#cancel-delete', function() {
+        $.post(`/api/photos/${photoId}/restore_photo/`)
+            .done(() => location.reload());
+    });
+
     loadPhotoDetails();
     updateAuthUI();
 
-    // Listen for changes in localStorage (e.g., after login/logout)
     window.addEventListener('storage', function(event) {
         if (event.key === 'authToken') {
             updateAuthUI();

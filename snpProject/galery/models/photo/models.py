@@ -20,7 +20,7 @@ class Photo(models.Model):
     deleted_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата удаления', db_index=True)
     moderation = models.CharField(max_length=1, choices=STATUS_CHOICES, verbose_name="Статус", default='2', db_index=True)
     old_image = models.ImageField(upload_to='photos/old/', blank=True, null=True, verbose_name='Старая фотография')
-
+    task_id = models.CharField(max_length=255, blank=True, null=True)
   
     image_thumbnail = ImageSpecField(
         source='image',

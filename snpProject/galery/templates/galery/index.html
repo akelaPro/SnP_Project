@@ -10,7 +10,7 @@
     function loadPhotos(params = {}) {
         console.log('Загрузка фотографий с параметрами:', params);
         $.ajax({
-            url: '/API/api/photos/',
+            url: '/api/photos/',
             method: 'GET',
             params,
             success: function(data) {
@@ -18,12 +18,12 @@
                 $('#photo-list').empty();
                 if (Array.isArray(data)) {
                     data.forEach(function(photo) {
-                        const photoUrl = `/photo/${photo.id}/`;
+                        const photoUrl = `photo/${photo.id}/`;
 
                         $('#photo-list').append(`
                             <div class="photo" style="flex: 1 0 calc(25% - 20px); box-sizing: border-box; background: #fff; border-radius: 10px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); overflow: hidden; height: 300px;">
                                 <a href="${photoUrl}" style="text-decoration: none; color: inherit; display: flex; flex-direction: column; height: 100%;">
-                                     <img src="${photo.image}" alt="${photo.title}" style="width: 100%; height: 70%; object-fit: cover; border-radius: 10px 10px 0 0;">
+                                     <img src="${photo.image}" alt="${photo.title}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 10px 10px 0 0;">
                                     <div style="padding: 5px 10px; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between;">
                                         <div>
                                             <p style="font-weight: bold; margin: 0; font-size: 14px;">${photo.title}</p>
