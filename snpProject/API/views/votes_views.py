@@ -23,13 +23,13 @@ class VoteViewSet(BaseViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-        # Создание нового лайка
+
             vote = Vote.objects.create(author=request.user, photo_id=photo_id)
             serializer = self.get_serializer(vote)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def destroy(self, request, *args, **kwargs):
-        # Получение объекта лайка по ID
+        
         vote = self.get_object()
         if vote.author != request.user:
             return Response(

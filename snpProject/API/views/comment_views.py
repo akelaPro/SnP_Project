@@ -7,8 +7,7 @@ from rest_framework.permissions import IsAuthenticatedOrReadOnly
 class CommentViewSet(BaseViewSet):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]  # Изменено на IsAuthenticated
-
+    permission_classes = [IsAuthenticatedOrReadOnly]  
     def perform_create(self, serializer):
         if self.request.user.is_authenticated:
             super().perform_create(serializer)

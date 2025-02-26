@@ -92,7 +92,7 @@ $(document).ready(function() {
                 'Authorization': 'Token ' + authToken
             },
             success: function(photo) {
-                console.log('Photo data:', photo); // Log the entire photo object
+                console.log('Photo data:', photo); 
 
                 $('#photo-title').text(photo.title);
                 $('#photo-image').attr('src', photo.image || '');
@@ -101,12 +101,12 @@ $(document).ready(function() {
                 $('#photo-description').text(photo.description);
                 $('#votes-count').text(photo.votes_count || 0);
 
-                // Check if the current user can edit the photo
+               
                 window.canEdit = photo.can_edit;
                 console.log('canEdit:', window.canEdit);
                 console.log('photo.moderation:', photo.moderation, 'photo.deleted_at:', photo.deleted_at);
 
-                // Now update the visibility of the delete/restore buttons
+
                 if (window.canEdit) {
                     if (photo.moderation === '1' && photo.deleted_at) {
                         deletePhotoButton.hide();
@@ -115,10 +115,9 @@ $(document).ready(function() {
                         deletePhotoButton.show();
                         restorePhotoButton.hide();
                     }
-                    photoActions.show();  // Make sure the actions container is visible
+                    photoActions.show();  
                 } else {
-                    photoActions.hide();  // Hide the actions container if not allowed
-                }
+                    photoActions.hide();  
 
                  // Timer logic
                 if (photo.moderation === '1') {
@@ -140,7 +139,7 @@ $(document).ready(function() {
                         } else {
                             timerDiv.html('<div class="alert alert-danger">Фото удалено</div>');
                             clearInterval(timerInterval);
-                            deletePhotoButton.hide(); // Hide the button after deletion
+                            deletePhotoButton.hide(); 
                             restorePhotoButton.hide();
                         }
                     };
@@ -240,8 +239,8 @@ $(document).ready(function() {
             'Authorization': 'Token ' + authToken,
             'X-CSRFToken': '{{ csrf_token }}'
         },
-        success: function(response) {  // Получаем response
-            loadPhotoDetails(); // Обновляем детали после успешного восстановления
+        success: function(response) {  
+            loadPhotoDetails(); 
         },
         error: function(xhr) {
             console.error('Ошибка при восстановлении фотографии:', xhr.responseText);

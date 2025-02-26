@@ -70,8 +70,8 @@ class PhotoViewSet(BaseViewSet):
         photo.deleted_at = timezone.now()
         photo.save()
     
-    # Передаем ID фото как аргумент задачи
-        delete_photo.apply_async(args=(photo.id,), countdown=120)  # Исправлено здесь
+    
+        delete_photo.apply_async(args=(photo.id,), countdown=120)  
     
         serializer = self.get_serializer(photo)
         self.notify_user(request.user, f"Фотография '{photo.title}' помечена на удаление.", 'photo_deleted')
@@ -83,26 +83,26 @@ class PhotoViewSet(BaseViewSet):
     def restore_photo(self, request, pk=None):
         logger.info(f"restore_photo called with pk={pk}, user={request.user}")
         try:
-        # Используем self.get_object() без передачи pk
-            photo = self.get_object()  # Теперь метод автоматически использует pk из self.kwargs
+        
+            photo = self.get_object()  
             logger.info(f"Photo found: {photo.id}, moderation={photo.moderation}, deleted_at={photo.deleted_at}")
 
-        # Проверки прав доступа
+        
             if photo.author != request.user:
                 logger.warning("Permission denied.")
                 return Response({'detail': 'У вас нет прав на восстановление этой фотографии.'}, status=status.HTTP_403_FORBIDDEN)
 
-        # Проверка состояния удаления
+        
             if photo.moderation != '1' or photo.deleted_at is None:
                 logger.warning(f"Photo not marked for deletion. moderation={photo.moderation}, deleted_at={photo.deleted_at}")
                 return Response({'detail': 'Фотография не помечена на удаление.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Проверка времени
+       
             if timezone.now() > photo.deleted_at + timezone.timedelta(seconds=60):
                 logger.warning("Restore time expired.")
                 return Response({'detail': 'Время для восстановления фотографии истекло.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Восстановление
+       
             photo.moderation = '2'
             photo.deleted_at = None
             photo.save()
