@@ -71,7 +71,7 @@ class PhotoViewSet(BaseViewSet):
         photo.save()
     
     
-        delete_photo.apply_async(args=(photo.id,), countdown=120)  
+        delete_photo.apply_async(args=(photo.id,), countdown=30)  
     
         serializer = self.get_serializer(photo)
         self.notify_user(request.user, f"Фотография '{photo.title}' помечена на удаление.", 'photo_deleted')
