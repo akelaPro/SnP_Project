@@ -7,20 +7,25 @@ from rest_framework.permissions import IsAuthenticatedOrReadOnly
 class CommentViewSet(BaseViewSet):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]  
-    def perform_create(self, serializer):
-        if self.request.user.is_authenticated:
-            super().perform_create(serializer)
-            photo = serializer.instance.photo
-            self.notify_user(photo.author, f"Новый комментарий на вашу фотографию '{photo.title}': {serializer.instance.text}", 'new_comment')
-
-    def perform_update(self, serializer):
-            super().perform_update(serializer)
-            photo = serializer.instance.photo
-            self.notify_user(photo.author, f"Изменен комментарий на вашу фотографию '{photo.title}': {serializer.instance.text}", 'comment_changed')
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
+        queryset = super().get_queryset()
         photo_id = self.request.query_params.get('photo')
+        parent_id = self.request.query_params.get('parent') # Получаем параметр parent
         if photo_id:
-            return self.queryset.filter(photo_id=photo_id)
-        return self.queryset
+            queryset = queryset.filter(photo_id=photo_id)
+        if parent_id: # Если указан parent, фильтруем ответы только для этого родителя
+            queryset = queryset.filter(parent_id=parent_id)
+        return queryset
+
+    def perform_create(self, serializer):
+        serializer.save(
+            author=self.request.user,
+            parent=serializer.validated_data.get('parent')
+        )
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['depth'] = 0  # Начальная глубина
+        return context

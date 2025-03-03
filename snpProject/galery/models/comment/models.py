@@ -8,6 +8,8 @@ class Comment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата публикации')
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='comments', verbose_name='Автор', db_index=True) # добавил db_index
     photo = models.ForeignKey(Photo, on_delete=models.CASCADE, related_name='comments', verbose_name='Фото', db_index=True) # добавил db_index
+    parent = models.ForeignKey('self', null=True, blank=True, on_delete=models.CASCADE, related_name='replies', verbose_name='Ответ на', db_index=True)
+
 
     def __str__(self):
         return f"Comment by {self.author.email} on {self.photo.title}"
@@ -16,3 +18,4 @@ class Comment(models.Model):
     class Meta:
         verbose_name = 'Коментарий'
         verbose_name_plural = 'Коментарии'
+        ordering = ['-created_at']

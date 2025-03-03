@@ -15,7 +15,11 @@
     <div id="timer"></div>
 
     <h3>Комментарии:</h3>
-    <ul class="list-unstyled" id="comments-list"></ul>
+    <ul class="list-unstyled" id="comments-list">
+    </ul>
+
+    <button id="show-all-comments-button" style="display:none;" class="btn btn-secondary">Показать все комментарии</button>
+    <button id="hide-all-comments-button" style="display:none;" class="btn btn-secondary">Скрыть все комментарии</button>
 
     <div id="comment-section">
         <form id="comment-form" class="mb-4" style="display: none;">
@@ -49,7 +53,11 @@ $(document).ready(function() {
     const deletePhotoButton = $('#delete-photo-button');
     const restorePhotoButton = $('#restore-photo-button');
     const photoActions = $('#photo-actions');
-    const timerDiv = $('#timer'); // Get the timer div
+    const timerDiv = $('#timer');
+    const showAllCommentsButton = $('#show-all-comments-button');
+    const hideAllCommentsButton = $('#hide-all-comments-button');
+
+    let allCommentsLoaded = false;
 
     $.ajaxSetup({
         headers: {
@@ -91,7 +99,7 @@ $(document).ready(function() {
                 'Authorization': 'Token ' + authToken
             },
             success: function(photo) {
-                console.log('Photo data:', photo); // Log the entire photo object
+                console.log('Photo data:', photo);
 
                 $('#photo-title').text(photo.title);
                 $('#photo-image').attr('src', photo.image || '');
@@ -100,12 +108,10 @@ $(document).ready(function() {
                 $('#photo-description').text(photo.description);
                 $('#votes-count').text(photo.votes_count || 0);
 
-                // Check if the current user can edit the photo
                 window.canEdit = photo.can_edit;
                 console.log('canEdit:', window.canEdit);
                 console.log('photo.moderation:', photo.moderation, 'photo.deleted_at:', photo.deleted_at);
 
-                // Now update the visibility of the delete/restore buttons
                 if (window.canEdit) {
                     if (photo.moderation === '1' && photo.deleted_at) {
                         deletePhotoButton.hide();
@@ -114,16 +120,15 @@ $(document).ready(function() {
                         deletePhotoButton.show();
                         restorePhotoButton.hide();
                     }
-                    photoActions.show();  // Make sure the actions container is visible
+                    photoActions.show();
                 } else {
-                    photoActions.hide();  // Hide the actions container if not allowed
+                    photoActions.hide();
                 }
 
-                 // Timer logic
                 if (photo.moderation === '1') {
                     const deletedAt = new Date(photo.deleted_at);
                     const deleteTime = deletedAt.getTime() + 35000;
-
+                    const timerInterval = setInterval(updateTimer, 1000);
                     const updateTimer = () => {
                         const now = new Date().getTime();
                         const remaining = deleteTime - now;
@@ -139,18 +144,18 @@ $(document).ready(function() {
                         } else {
                             timerDiv.html('<div class="alert alert-danger">Фото удалено</div>');
                             clearInterval(timerInterval);
-                            deletePhotoButton.hide(); // Hide the button after deletion
+                            deletePhotoButton.hide();
                             restorePhotoButton.hide();
                         }
                     };
 
                     updateTimer();
-                    const timerInterval = setInterval(updateTimer, 1000);
+                    
                 } else {
                     timerDiv.empty();
                 }
 
-                loadComments();
+                loadInitialComments();
             },
             error: function(xhr) {
                 console.error('Ошибка при загрузке фотографии:', xhr.responseText);
@@ -159,19 +164,110 @@ $(document).ready(function() {
         });
     }
 
-    function loadComments() {
+    function loadInitialComments() {
         $.get(`/api/comments/?photo=${photoId}`)
             .done(comments => {
                 const commentsList = $('#comments-list');
                 commentsList.empty();
-                comments.forEach(comment => {
-                    commentsList.append(`<li>${comment.text} - ${comment.author.username}</li>`);
+
+                const rootComments = comments.filter(comment => !comment.parent);
+                rootComments.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+                const initialRootComments = rootComments.slice(0, 2);
+
+                initialRootComments.forEach(comment => {
+                    const commentHTML = buildCommentHTML(comment, comments);
+                    commentsList.append(commentHTML);
                 });
+
+                if (rootComments.length > 2) {
+                    showAllCommentsButton.show();
+                    showAllCommentsButton.off('click').on('click', function() {
+                        loadAllComments();
+                    });
+                } else {
+                    showAllCommentsButton.hide();
+                }
             })
             .fail(console.error);
     }
 
+
+    function loadAllComments() {
+        $.get(`/api/comments/?photo=${photoId}`)
+            .done(comments => {
+                const commentsList = $('#comments-list');
+                commentsList.empty();
+
+                const rootComments = comments.filter(comment => !comment.parent);
+                rootComments.forEach(comment => {
+                    const commentHTML = buildCommentHTML(comment, comments);
+                    commentsList.append(commentHTML);
+                });
+
+                showAllCommentsButton.hide();
+                hideAllCommentsButton.show();
+                allCommentsLoaded = true;
+            })
+            .fail(console.error);
+    }
+
+
+    function hideAllComments() {
+        $('#comments-list').empty();
+        showAllCommentsButton.show();
+        hideAllCommentsButton.hide();
+        loadInitialComments();
+    }
+
+
+    function buildCommentHTML(comment, allComments, level = 0) {
+        let html = `
+            <li id="comment-${comment.id}" style="margin-left: ${level * 30}px">
+                ${comment.text} - ${comment.author.username}
+                <button class="reply-button" data-comment-id="${comment.id}">Ответить</button>`;
+
+        const replies = allComments.filter(c => c.parent === comment.id);
+        const hasReplies = replies.length > 0;
+
+        if (hasReplies) {
+            const repliesVisible = localStorage.getItem(`repliesVisible-${comment.id}`) === 'true';
+            const buttonText = repliesVisible ? 'Скрыть ответы' : 'Показать ответы';
+
+            html += `<button class="toggle-replies-button" data-comment-id="${comment.id}">${buttonText}</button>`;
+
+            const repliesStyle = repliesVisible ? '' : 'style="display: none;"';
+            html += `<ul class="replies" id="replies-${comment.id}" ${repliesStyle}>`;
+
+            replies.forEach(reply => {
+                html += buildCommentHTML(reply, allComments, level + 1);
+            });
+
+            html += `</ul>`;
+        }
+
+        html += `</li>`;
+        return html;
+    }
+
+    $(document).on('click', '.toggle-replies-button', function() {
+        const commentId = $(this).data('comment-id');
+        const repliesContainer = $(`#replies-${commentId}`);
+        const button = $(this);
+
+        const repliesVisible = repliesContainer.is(':visible');
+        const newRepliesVisible = !repliesVisible;
+
+        repliesContainer.toggle();
+
+        const buttonText = newRepliesVisible ? 'Скрыть ответы' : 'Показать ответы';
+        button.text(buttonText);
+
+        localStorage.setItem(`repliesVisible-${commentId}`, newRepliesVisible);
+    });
+
     $('#comment-form').submit(function(e) {
+        console.log('Основная форма отправлена');
         e.preventDefault();
         const data = JSON.stringify({
             text: $(this).find('textarea').val(),
@@ -180,10 +276,57 @@ $(document).ready(function() {
 
         $.post(`/api/comments/`, data)
             .done(() => {
-                loadComments();
+                loadInitialComments();
                 $(this).find('textarea').val('');
             })
             .fail(console.error);
+    });
+
+    $(document).on('submit', '[id^="reply-form-"]', function(e) {
+        console.log('Форма ответа отправлена');
+        e.preventDefault();
+        const parentId = $(this).data('parent-id');
+        const text = $(this).find('.reply-text').val();
+
+        const data = JSON.stringify({
+            text: text,
+            photo: photoId,
+            parent: parentId
+        });
+
+        $.ajax({
+            url: `/api/comments/`,
+            type: 'POST',
+            contentType: 'application/json',
+            data,
+            headers: {
+                'Authorization': 'Token ' + authToken,
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            success: function() {
+                loadInitialComments();
+                $(this).find('textarea').val('');
+            },
+            error: function(xhr, status, error) {
+                console.error("Ошибка при отправке комментария:", error);
+            }
+        });
+    });
+
+    $(document).on('click', '.reply-button', function() {
+        const commentId = $(this).data('comment-id');
+        const replyForm = `
+            <form id="reply-form-${commentId}" class="reply-form" data-parent-id="${commentId}">
+                <textarea class="reply-text"></textarea>
+                <button type="submit">Отправить ответ</button>
+                <button type="button" class="cancel-reply">Отменить</button>
+            </form>
+        `;
+        $(this).after(replyForm);
+    });
+
+    $(document).on('click', '.cancel-reply', function() {
+        $(this).closest('.reply-form').remove();
     });
 
     $('#like-button').click(function() {
@@ -232,31 +375,35 @@ $(document).ready(function() {
     });
 
     $('#restore-photo-button').click(function() {
-    $.ajax({
-        url: `/api/photos/${photoId}/restore_photo/`,
-        method: 'POST',
-        headers: {
-            'Authorization': 'Token ' + authToken,
-            'X-CSRFToken': '{{ csrf_token }}'
-        },
-        success: function(response) {  // Получаем response
-            loadPhotoDetails(); // Обновляем детали после успешного восстановления
-        },
-        error: function(xhr) {
-            console.error('Ошибка при восстановлении фотографии:', xhr.responseText);
-            try {
-                const errorData = JSON.parse(xhr.responseText);
-                alert('Ошибка при восстановлении фотографии: ' + (errorData.detail || 'Неизвестная ошибка'));
-            } catch (e) {
-                alert('Ошибка при восстановлении фотографии: ' + xhr.responseText);
+        $.ajax({
+            url: `/api/photos/${photoId}/restore_photo/`,
+            method: 'POST',
+            headers: {
+                'Authorization': 'Token ' + authToken,
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            success: function(response) {
+                loadPhotoDetails();
+            },
+            error: function(xhr) {
+                console.error('Ошибка при восстановлении фотографии:', xhr.responseText);
+                try {
+                    const errorData = JSON.parse(xhr.responseText);
+                    alert('Ошибка при восстановлении фотографии: ' + (errorData.detail || 'Неизвестная ошибка'));
+                } catch (e) {
+                    alert('Ошибка при восстановлении фотографии: ' + xhr.responseText);
+                }
             }
-        }
+        });
     });
-});
 
     $(document).on('click', '#cancel-delete', function() {
         $.post(`/api/photos/${photoId}/restore_photo/`)
             .done(() => location.reload());
+    });
+
+    hideAllCommentsButton.click(function() {
+        hideAllComments();
     });
 
     loadPhotoDetails();
