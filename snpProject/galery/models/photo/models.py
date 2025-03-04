@@ -41,6 +41,9 @@ class Photo(models.Model):
         self.deleted_at = None
         self.save()
 
+    def get_moderation_display(self):
+        return dict(self.STATUS_CHOICES).get(self.moderation, 'Неизвестно')
+
     class Meta:
         verbose_name = 'Фотография'
         verbose_name_plural = 'Фотографии'

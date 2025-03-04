@@ -16,6 +16,7 @@ from API.serializers import *
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import action
 import logging
+from rest_framework.filters import SearchFilter, OrderingFilter
 
 
 logger = logging.getLogger(__name__)
@@ -40,22 +41,40 @@ class BaseViewSet(viewsets.ModelViewSet):
         )
 
 class PhotoViewSet(BaseViewSet):
-    queryset = Photo.objects.all()  
+    queryset = Photo.objects.all()
     serializer_class = PhotoSerializer
     parser_classes = [MultiPartParser, FormParser]
+    # Добавляем OrderingFilter и настраиваем поиск
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields = ['title', 'author__username', 'description']
+    ordering_fields = ['votes_count', 'published_at', 'comments_count']
+    ordering = ['-published_at']  # Сортировка по умолчанию
 
     def get_queryset(self):
         queryset = super().get_queryset()
+        include_deleted = self.request.query_params.get('include_deleted', 'false') == 'true'
 
-        include_deleted = self.request.query_params.get('include_deleted', False)
-
-        if self.request.user.is_authenticated and include_deleted == 'true':
-            return Photo.objects.filter(
-            Q(moderation='3') | Q(moderation='1', author=self.request.user)
-        )
+        # Фильтрация в зависимости от прав пользователя
+        if self.request.user.is_authenticated:
+            if include_deleted:
+                queryset = Photo.objects.filter(
+                    Q(moderation='3') | Q(moderation='1', author=self.request.user)
+                )
+            else:
+                queryset = Photo.objects.filter(
+                    Q(moderation='3') | 
+                    Q(moderation='1', author=self.request.user, deleted_at__isnull=True)
+                )
         else:
-            return Photo.objects.filter(moderation='3') | Photo.objects.filter(moderation='1', author=self.request.user)
+            queryset = Photo.objects.filter(moderation='3')
 
+        # Аннотации для сортировки
+        queryset = queryset.annotate(
+            votes_count=Count('votes', distinct=True),
+            comments_count=Count('comments', distinct=True)
+        )
+
+        return queryset
 
     
 

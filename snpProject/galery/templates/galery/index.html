@@ -1,60 +1,91 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<h1>Галерея Фотографий</h1>
-<div id="photo-list" style="display: flex; flex-wrap: wrap; gap: 20px;"></div>
+<h1 class="mb-4">Галерея Фотографий</h1>
 
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<div id="photo-list" class="row g-4"></div>
 
 <script>
     function loadPhotos(params = {}) {
-        console.log('Загрузка фотографий с параметрами:', params);
-        $.ajax({
-            url: '/api/photos/',
-            method: 'GET',
-            params,
-            success: function(data) {
-                console.log('API Response data:', data);
-                $('#photo-list').empty();
-                if (Array.isArray(data)) {
-                    data.forEach(function(photo) {
-                        const photoUrl = `photo/${photo.id}/`;
+        const baseUrl = '/api/photos/';
+        const urlParams = new URLSearchParams({
+            search: $('#search-input').val() || '',
+            ordering: $('#sort-select').val() || '-published_at',
+            ...params
+        });
+        
+        history.replaceState(null, null, `?${urlParams.toString()}`);
 
-                        $('#photo-list').append(`
-                            <div class="photo" style="flex: 1 0 calc(25% - 20px); box-sizing: border-box; background: #fff; border-radius: 10px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); overflow: hidden; height: 300px;">
-                                <a href="${photoUrl}" style="text-decoration: none; color: inherit; display: flex; flex-direction: column; height: 100%;">
-                                     <img src="${photo.image}" alt="${photo.title}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 10px 10px 0 0;">
-                                    <div style="padding: 5px 10px; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between;">
-                                        <div>
-                                            <p style="font-weight: bold; margin: 0; font-size: 14px;">${photo.title}</p>
+        $.ajax({
+            url: baseUrl + '?' + urlParams.toString(),
+            method: 'GET',
+            success: function(data) {
+                let html = '';
+                if (Array.isArray(data)) {
+                    data.forEach(photo => {
+                        html += `
+                        <div class="col-12 col-md-6 col-lg-4 col-xl-3">
+                            <div class="photo card h-100 shadow-sm">
+                                <a href="photo/${photo.id}/" class="text-decoration-none text-dark">
+                                    <img src="${photo.image}" 
+                                         class="card-img-top img-fluid" 
+                                         alt="${photo.title}"
+                                         style="height: 200px; object-fit: cover;">
+                                    <div class="card-body">
+                                        <h5 class="card-title fs-6 mb-2">${photo.title}</h5>
+                                        <div class="d-flex align-items-center mb-3">
+                                            <img src="${photo.author.avatar || '/static/img/default-avatar.png'}" 
+                                                 class="rounded-circle me-2" 
+                                                 style="width: 30px; height: 30px; object-fit: cover;" 
+                                                 alt="${photo.author.username}">
+                                            <small>${photo.author.username}</small>
                                         </div>
-                                        <div>
-                                            <div class="author" style="display: flex; align-items: center;">
-                                                <img src="${photo.author.avatar}" alt="${photo.author.username}" style="width: 25px; height: 25px; border-radius: 50%; margin-right: 5px;">
-                                                <span style="font-size: 12px;">${photo.author.username}</span>
-                                            </div>
-                                            <div class="likes-comments" style="font-size: 10px; color: #555;">
-                                                <p style="margin: 0;">Лайков: ${photo.votes.length}</p>
-                                                <p style="margin: 0;">Комментарии: ${photo.comments.length}</p>
-                                            </div>
+                                        <div class="d-flex justify-content-between align-items-center small text-muted">
+                                            <span class="d-flex align-items-center" title="Лайки">
+                                                <i class="bi bi-heart-fill text-danger me-1"></i>
+                                                <span class="fw-medium">${photo.votes_count}</span>
+                                            </span>
+                                            
+                                            <span class="mx-2">|</span>
+                                            
+                                            <span class="d-flex align-items-center" title="Комментарии">
+                                                <i class="bi bi-chat-left-text-fill text-primary me-1"></i>
+                                                <span class="fw-medium">${photo.comments_count}</span>
+                                            </span>
+                                            
+                                            <span class="d-flex align-items-center" title="Дата публикации">
+                                                <i class="bi bi-clock-fill text-secondary me-1"></i>
+                                                <span>${new Date(photo.published_at).toLocaleDateString('ru-RU')}</span>
+                                            </span>
                                         </div>
                                     </div>
                                 </a>
                             </div>
-                        `);
+                        </div>`;
                     });
-                } else {
-                    $('#photo-list').html('<p>Нет доступных фотографий.</p>');
                 }
+                $('#photo-list').html(html || '<div class="col-12"><p class="text-center">Фотографии не найдены</p></div>');
             },
-            error: function(jqXHR, textStatus, errorThrown) {
-                console.error('Ошибка при получении данных с API:', textStatus, errorThrown);
-                $('#photo-list').html('<p>Ошибка при получении данных</p>');
+            error: function() {
+                $('#photo-list').html('<div class="col-12"><p class="text-center text-danger">Ошибка загрузки данных</p></div>');
             }
         });
     }
 
     $(document).ready(function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        $('#search-input').val(urlParams.get('search'));
+        $('#sort-select').val(urlParams.get('ordering') || '-published_at');
+
+        $('#search-form').on('submit', function(e) {
+            e.preventDefault();
+            loadPhotos();
+        });
+
+        $('#sort-select').on('change', function() {
+            loadPhotos();
+        });
+
         loadPhotos();
     });
 </script>

@@ -6,16 +6,22 @@ class PhotoSerializer(serializers.ModelSerializer):
     author = BaseUserSerializer(read_only=True)
     comments = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
     votes = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
-    image = serializers.ImageField(required=True)  # Установите required=True
+    image = serializers.ImageField(required=True)
     has_liked = serializers.SerializerMethodField()
     can_edit = serializers.SerializerMethodField()
+    votes_count = serializers.IntegerField(read_only=True)
+    comments_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Photo
-        fields = '__all__'
+        fields = [
+            'id', 'title', 'description', 'author', 'image', 
+            'published_at', 'moderation', 'deleted_at', 'comments',
+            'votes', 'has_liked', 'can_edit', 'votes_count', 'comments_count'
+        ]
         read_only_fields = ['published_at', 'author', 'old_image']
         
-         # added author
+
     def get_can_edit(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
