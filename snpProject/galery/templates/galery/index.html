@@ -5,19 +5,27 @@
 
 <div id="photo-list" class="row g-4"></div>
 
+{% endblock %}
+
+{% block extra_scripts %}
 <script>
-    function loadPhotos(params = {}) {
+    function loadPhotos(search = '', ordering = '') {
         const baseUrl = '/api/photos/';
-        const urlParams = new URLSearchParams({
-            search: $('#search-input').val() || '',
-            ordering: $('#sort-select').val() || '-published_at',
-            ...params
-        });
-        
-        history.replaceState(null, null, `?${urlParams.toString()}`);
+        let url = baseUrl + '?';
+        let params = [];
+        if (search) {
+            params.push('search=' + search);
+        }
+         if (ordering) {
+            params.push('ordering=' + ordering);
+        }
+
+        if (params.length > 0) {
+             url += params.join('&');
+        }
 
         $.ajax({
-            url: baseUrl + '?' + urlParams.toString(),
+            url: url,
             method: 'GET',
             success: function(data) {
                 let html = '';
@@ -27,16 +35,16 @@
                         <div class="col-12 col-md-6 col-lg-4 col-xl-3">
                             <div class="photo card h-100 shadow-sm">
                                 <a href="photo/${photo.id}/" class="text-decoration-none text-dark">
-                                    <img src="${photo.image}" 
-                                         class="card-img-top img-fluid" 
+                                    <img src="${photo.image}"
+                                         class="card-img-top img-fluid"
                                          alt="${photo.title}"
                                          style="height: 200px; object-fit: cover;">
                                     <div class="card-body">
                                         <h5 class="card-title fs-6 mb-2">${photo.title}</h5>
                                         <div class="d-flex align-items-center mb-3">
-                                            <img src="${photo.author.avatar || '/static/img/default-avatar.png'}" 
-                                                 class="rounded-circle me-2" 
-                                                 style="width: 30px; height: 30px; object-fit: cover;" 
+                                            <img src="${photo.author.avatar || '/static/img/default-avatar.png'}"
+                                                 class="rounded-circle me-2"
+                                                 style="width: 30px; height: 30px; object-fit: cover;"
                                                  alt="${photo.author.username}">
                                             <small>${photo.author.username}</small>
                                         </div>
@@ -45,14 +53,14 @@
                                                 <i class="bi bi-heart-fill text-danger me-1"></i>
                                                 <span class="fw-medium">${photo.votes_count}</span>
                                             </span>
-                                            
+
                                             <span class="mx-2">|</span>
-                                            
+
                                             <span class="d-flex align-items-center" title="Комментарии">
                                                 <i class="bi bi-chat-left-text-fill text-primary me-1"></i>
                                                 <span class="fw-medium">${photo.comments_count}</span>
                                             </span>
-                                            
+
                                             <span class="d-flex align-items-center" title="Дата публикации">
                                                 <i class="bi bi-clock-fill text-secondary me-1"></i>
                                                 <span>${new Date(photo.published_at).toLocaleDateString('ru-RU')}</span>
@@ -73,19 +81,6 @@
     }
 
     $(document).ready(function() {
-        const urlParams = new URLSearchParams(window.location.search);
-        $('#search-input').val(urlParams.get('search'));
-        $('#sort-select').val(urlParams.get('ordering') || '-published_at');
-
-        $('#search-form').on('submit', function(e) {
-            e.preventDefault();
-            loadPhotos();
-        });
-
-        $('#sort-select').on('change', function() {
-            loadPhotos();
-        });
-
         loadPhotos();
     });
 </script>

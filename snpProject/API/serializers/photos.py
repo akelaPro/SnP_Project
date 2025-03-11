@@ -11,16 +11,20 @@ class PhotoSerializer(serializers.ModelSerializer):
     can_edit = serializers.SerializerMethodField()
     votes_count = serializers.IntegerField(read_only=True)
     comments_count = serializers.IntegerField(read_only=True)
+    status_display = serializers.SerializerMethodField()
 
     class Meta:
         model = Photo
         fields = [
             'id', 'title', 'description', 'author', 'image', 
-            'published_at', 'moderation', 'deleted_at', 'comments',
+            'published_at', 'status_display', 'deleted_at', 'comments',
             'votes', 'has_liked', 'can_edit', 'votes_count', 'comments_count'
         ]
         read_only_fields = ['published_at', 'author', 'old_image']
         
+
+    def get_status_display(self, obj):
+        return obj.get_moderation_display()
 
     def get_can_edit(self, obj):
         request = self.context.get('request')

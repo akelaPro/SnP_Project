@@ -19,7 +19,7 @@ urlpatterns = [
     #path('api/photos/upload/', views.PhotoUploadView.as_view(), name='photo_upload'),
     path('api/user/profile/update/', views.UpdateUserProfileAPIView.as_view(), name='update_user_profile'),
     path('api/user/profile/', views.UserProfileAPIView.as_view(), name='user_profile'),
-    path('api/user/photos/', views.UserPhotosAPIView.as_view(), name='user_photos'),
+    path('api/user/photos/', views.UserLisPhoto.as_view(), name='user_photos'),
     
 ]
 

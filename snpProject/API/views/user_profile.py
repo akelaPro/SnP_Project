@@ -1,20 +1,23 @@
 from django.db.models import Count
 from rest_framework.permissions import IsAuthenticated
-from serializers.photos import PhotoSerializer
-from views.photos_vews import BaseViewSet
+from API.serializers import *
 from galery.models.photo.models import Photo
+from rest_framework.filters import SearchFilter, OrderingFilter
+from rest_framework.generics import ListAPIView
 
-
-class UserPhotosViewSet(BaseViewSet):
+class UserLisPhoto(ListAPIView):
     serializer_class = PhotoSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields = ['title', 'author__username', 'description']
+    ordering_fields = ['votes_count', 'published_at', 'comments_count', 'moderation']
+    ordering = ['-published_at'] 
 
     def get_queryset(self):
         queryset = Photo.objects.filter(author=self.request.user)
-        
-        status_filter = self.request.query_params.get('moderation_status')
-        if status_filter:
-            queryset = queryset.filter(moderation=status_filter)
+        status = self.request.query_params.get('moderation_status')
+        if status:
+            queryset = queryset.filter(moderation=status)
             
         return queryset.annotate(
             votes_count=Count('votes', distinct=True),
