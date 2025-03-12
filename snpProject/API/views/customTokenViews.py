@@ -4,10 +4,13 @@ from rest_framework.response import Response
 from rest_framework import status, exceptions
 from django.contrib.auth import authenticate
 from django.utils import timezone
+from API.authentication import CustomTokenAuthentication
 from API.serializers import *
 from galery.models import *
 from API.utils import hash_token
 import secrets
+from rest_framework.permissions import IsAuthenticated
+
 
 class LoginView(APIView):
     def post(self, request):
@@ -75,3 +78,10 @@ class LogoutView(APIView):
     def post(self, request):
         request.user.token.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+    
+class VerifyTokenView(APIView):
+    authentication_classes = [CustomTokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response({"status": "valid"}, status=status.HTTP_200_OK)

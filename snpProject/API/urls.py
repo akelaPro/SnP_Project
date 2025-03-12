@@ -15,6 +15,7 @@ app_name = 'API'
 urlpatterns = [
     path('', include(router.urls)),
     #path('api/v1/auth/', include('djoser.urls')),
+    path('api/auth/verify/', VerifyTokenView.as_view(), name='verify-token'),
     path('api/login/', LoginView.as_view(), name='login'),
     path('api/refresh/', RefreshView.as_view(), name='refresh'),
     path('api/logout/', LogoutView.as_view(), name='logout'),
