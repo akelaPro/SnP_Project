@@ -52,18 +52,9 @@ class PhotoViewSet(BaseViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        include_deleted = self.request.query_params.get('include_deleted', 'false') == 'true'
-
-        # Фильтрация в зависимости от прав пользователя
         if self.request.user.is_authenticated:
-            if include_deleted:
-                queryset = Photo.objects.filter(
-                    Q(moderation='3') | Q(moderation='1', author=self.request.user)
-                )
-            else:
-                queryset = Photo.objects.filter(
-                    Q(moderation='3') | 
-                    Q(moderation='1', author=self.request.user, deleted_at__isnull=True)
+            queryset = Photo.objects.filter(
+                Q(moderation='3') | Q(moderation='1', author=self.request.user)
                 )
         else:
             queryset = Photo.objects.filter(moderation='3')

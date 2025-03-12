@@ -10,6 +10,11 @@
                 </div>
                 <div class="card-body" id="profile-info">
                     <!-- Данные профиля будут загружены сюда -->
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status" id="profile-spinner">
+                            <span class="visually-hidden">Загрузка...</span>
+                        </div>
+                    </div>
                 </div>
                 <div>
                     <p><a href="{% url 'galery:create_photo' %}">Добавить фото</a></p>
@@ -31,6 +36,11 @@
             </div>
             <div class="row" id="photos">
                 <!-- Фотографии будут загружены сюда -->
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status" id="photos-spinner">
+                        <span class="visually-hidden">Загрузка...</span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -39,18 +49,19 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
     $(document).ready(function() {
-        const accessToken = localStorage.getItem('authToken');
+        const accessToken = localStorage.getItem('accessToken'); //  Получаем access token
         if (!accessToken) {
             console.error('Токен доступа отсутствует');
+            //  Можно перенаправить на страницу логина:
+            //  window.location.href = "{% url 'galery:login_template' %}";
             return;
         }
 
-        function loadPhotos() {
+        function loadPhotos(search = '', ordering = '') {
+            $('#photos-spinner').show(); //  Показываем спиннер загрузки фотографий
             let url = '{% url "API:user_photos" %}';
             const params = [];
 
-            const search = $('#search-input').val();
-            const ordering = $('#sort-select').val();
             const moderation_status = $('#status-filter').val();
 
             if (search) {
@@ -71,9 +82,10 @@
                 url: url,
                 method: 'GET',
                 headers: {
-                    'Authorization': 'Token ' + accessToken
+                    'Authorization': 'Bearer ' + accessToken // Отправляем Bearer токен
                 },
                 success: function(data) {
+                    $('#photos-spinner').hide(); // Скрываем спиннер загрузки фотографий
                     let photosHtml = '';
                     if (data.length > 0) {
                         data.forEach(photo => {
@@ -98,7 +110,9 @@
                     $('#photos').html(photosHtml);
                 },
                 error: function(xhr) {
+                    $('#photos-spinner').hide(); // Скрываем спиннер в случае ошибки
                     console.error('Ошибка при загрузке фотографий:', xhr.responseText);
+                    // Можно добавить обработку ошибок, например, показ сообщения
                 }
             });
         }
@@ -108,9 +122,13 @@
             url: '{% url "API:user_profile" %}',
             method: 'GET',
             headers: {
-                'Authorization': 'Token ' + accessToken
+                'Authorization': 'Bearer ' + accessToken // Отправляем Bearer токен
+            },
+            beforeSend: function(){
+              $('#profile-spinner').show(); // Показываем спиннер перед запросом
             },
             success: function(data) {
+                $('#profile-spinner').hide(); // Скрываем спиннер после успешной загрузки
                 const avatarUrl = data.avatar;
                 $('#profile-info').html(`
                     <img src="" alt="Avatar" class="img-fluid rounded-circle mb-3" style="width: 100px; height: 100px;">
@@ -120,7 +138,9 @@
                 `);
             },
             error: function(xhr) {
+                $('#profile-spinner').hide(); // Скрываем спиннер в случае ошибки
                 console.error('Ошибка при загрузке профиля:', xhr.responseText);
+                // Можно добавить обработку ошибок, например, показ сообщения
             }
         });
 
@@ -132,11 +152,11 @@
             loadPhotos();
         });
         $('#sort-select').change(function() {
-            loadPhotos();
+            loadPhotos($('#search-input').val(), $(this).val()); // Передаем параметры поиска и сортировки
         });
         $('#search-form').submit(function(e){
             e.preventDefault();
-             loadPhotos();
+             loadPhotos($('#search-input').val(), $('#sort-select').val()); // Передаем параметры поиска и сортировки
         });
     });
 </script>

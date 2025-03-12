@@ -54,11 +54,12 @@
     <script>
         // Обработчик аутентификации
         $(document).ready(function() {
-            const token = localStorage.getItem('authToken');
+            const accessToken = localStorage.getItem('accessToken');
+            const refreshToken = localStorage.getItem('refreshToken'); // Получаем refresh token
             const authLinks = $('#auth-links');
 
             const updateAuthUI = () => {
-                if (token) {
+                if (accessToken) {
                     authLinks.html(`
                         <li class="nav-item">
                             <a class="nav-link" href="{% url 'notification:notification_list' %}">
@@ -102,8 +103,33 @@
 
             // Функция выхода
             window.logout = function() {
-                localStorage.removeItem('authToken');
-                window.location.href = "{% url 'galery:home' %}";
+                const accessToken = localStorage.getItem('accessToken'); // Получаем токен
+                if (accessToken) {
+                    $.ajax({
+                        url: '/api/logout/', //  URL выхода
+                        method: 'POST',
+                        headers: {
+                            'Authorization': 'Bearer ' + accessToken, //  Access Token
+                            'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val()
+                        },
+                        success: function(data) {
+                            localStorage.removeItem('accessToken'); //  Access Token
+                            localStorage.removeItem('refreshToken'); //  Refresh Token
+                            window.location.href = "{% url 'galery:home' %}";
+                        },
+                        error: function(jqXHR, textStatus, errorThrown) {
+                            console.error('Ошибка при выходе:', textStatus, errorThrown);
+                            alert('Ошибка при выходе.');
+                            localStorage.removeItem('accessToken');
+                            localStorage.removeItem('refreshToken');
+                            window.location.href = "{% url 'galery:home' %}";
+                        }
+                    });
+                } else {
+                    localStorage.removeItem('accessToken');
+                    localStorage.removeItem('refreshToken');
+                    window.location.href = "{% url 'galery:home' %}";
+                }
             };
 
             // Обработчики поиска и сортировки

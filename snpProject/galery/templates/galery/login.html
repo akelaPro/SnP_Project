@@ -23,32 +23,35 @@
     $(document).ready(function() {
         $('#loginForm').submit(function(e) {
             e.preventDefault();
-    
+
             const email = $('#email').val();
             const password = $('#password').val();
-    
+
             const data = JSON.stringify({
-                email: email,
+                username: email,
                 password: password
             });
-    
+
             $.ajax({
-                url: '/auth/token/login/',
+                url: '/api/login/',
                 method: 'POST',
                 contentType: 'application/json',
                 dataType: 'json',
                 data,
-    
+
                 headers: {
                     'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val()
                 },
                 success: function(data) {
-                    console.log("Токен после входа:", data.auth_token); 
-                    if (data.auth_token) {
-                        localStorage.setItem('authToken', data.auth_token);
+                    console.log("Токен после входа:", data.access); // Проверка access токена
+                    console.log("Токен после входа:", data.refresh); // Проверка refresh токена
+
+                    if (data.access && data.refresh) {  // Проверяем, что access и refresh токены существуют
+                        localStorage.setItem('accessToken', data.access);  // Сохраняем access token
+                        localStorage.setItem('refreshToken', data.refresh); // Сохраняем refresh token
                         window.location.href = '{% url "galery:home" %}';
                     } else {
-                        alert('Не удалось получить токен.');
+                        alert('Не удалось получить токены.');
                     }
                 },
                 error: function(jqXHR, textStatus, errorThrown) {
@@ -57,13 +60,13 @@
             });
         });
     });
-    
+
     $(document).ajaxSend(function(event, xhr, settings) {
-        const token = localStorage.getItem('authToken');
+        const token = localStorage.getItem('accessToken'); // Получаем access token
         if (token) {
-            xhr.setRequestHeader('Authorization', 'Token ' + token);
+            xhr.setRequestHeader('Authorization', 'Bearer ' + token); // Отправляем как Bearer
         }
     });
-    </script>
-    
+</script>
+
 {% endblock %}

@@ -1,5 +1,5 @@
 $(document).ready(function() {
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem('accessToken');
     if (!token) {
         alert("Пожалуйста, войдите в систему, чтобы видеть уведомления.");
         window.location.href = '/login/'; 

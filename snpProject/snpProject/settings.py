@@ -185,28 +185,26 @@ REST_FRAMEWORK = {
     ],
 
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.TokenAuthentication',
-        'rest_framework.authentication.BasicAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
+        'API.authentication.CustomTokenAuthentication',
     ]
 }
 
 
 
-DJOSER = {
-    'LOGIN_FIELD': 'email',
-    'USER_CREATE_PASSWORD_RETYPE': True,
-    'SERIALIZERS': {
-        'user_create': 'API.serializers.CreateSerializer',
-        'user': 'API.serializers.UserSerializer',
-        'current_user': 'API.serializers.UserSerializer',
-    },
-    'PERMISSIONS': {
-        'user_list': ['rest_framework.permissions.IsAdminUser'],
-        'user': ['rest_framework.permissions.IsAuthenticated'],
-    },
-    #'TOKEN_MODEL': None,  # Use default Token model
-}
+#DJOSER = {
+    #'LOGIN_FIELD': 'email',
+    #'USER_CREATE_PASSWORD_RETYPE': True,
+    #'SERIALIZERS': {
+       # 'user_create': 'API.serializers.CreateSerializer',
+      #  'user': 'API.serializers.UserSerializer',
+      #  'current_user': 'API.serializers.UserSerializer',
+    #},
+   # 'PERMISSIONS': {
+   #     'user_list': ['rest_framework.permissions.IsAdminUser'],
+   #     'user': ['rest_framework.permissions.IsAuthenticated'],
+   # },
+   # #'TOKEN_MODEL': None,  # Use default Token model
+#}
 
 
 AUTHENTICATION_BACKENDS = [

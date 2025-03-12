@@ -43,7 +43,7 @@
 <script>
 $(document).ready(function() {
     const photoId = window.location.pathname.split('/').filter(Boolean).pop();
-    let authToken = localStorage.getItem('authToken');
+    let accessToken = localStorage.getItem('accessToken');
 
     const commentForm = $('#comment-form');
     const likeButton = $('#like-button');
@@ -59,17 +59,8 @@ $(document).ready(function() {
 
     let allCommentsLoaded = false;
 
-    $.ajaxSetup({
-        headers: {
-            'X-CSRFToken': '{{ csrf_token }}',
-            'Content-Type': 'application/json',
-            'Authorization': authToken ? `Token ${authToken}` : ''
-        }
-    });
-
     function updateAuthUI() {
-        authToken = localStorage.getItem('authToken');
-        if (authToken) {
+        if (accessToken) {
             commentForm.show();
             likeButton.show();
             loginPromptComment.hide();
@@ -81,22 +72,48 @@ $(document).ready(function() {
             loginPromptComment.show();
             loginPromptLike.show();
         }
+    }
 
-        $.ajaxSetup({
+    function refreshToken() {
+    const refreshTokenValue = localStorage.getItem('refreshToken');
+    if (!refreshTokenValue) {
+        console.warn("No refresh token available. Redirecting to login.");
+        window.location.href = "{% url 'galery:login_template' %}";
+        return Promise.reject("No refresh token available.");
+    }
+
+    return new Promise((resolve, reject) => {
+        const data = JSON.stringify({ refresh: refreshTokenValue });
+        $.ajax({
+            url: '/api/refresh/',
+            method: 'POST',
+            contentType: 'application/json',
+            data: data,// Правильное использование data
             headers: {
-                'X-CSRFToken': '{{ csrf_token }}',
-                'Content-Type': 'application/json',
-                'Authorization': authToken ? `Token ${authToken}` : ''
+                'X-CSRFToken': '{{ csrf_token }}' // Убедитесь, что CSRF-токен передается правильно
+            },
+            success: function(data) {
+                localStorage.setItem('accessToken', data.access);
+                localStorage.setItem('refreshToken', data.refresh);
+                accessToken = data.access;
+                resolve({ access: data.access, refresh: data.refresh });
+            },
+            error: function(xhr) {
+                console.error("Failed to refresh token:", xhr);
+                localStorage.removeItem('refreshToken');
+                window.location.href = "/galery/login/";
+                reject(xhr);
             }
         });
-    }
+    });
+}
 
     function loadPhotoDetails() {
         $.ajax({
             url: `/api/photos/${photoId}/?include_deleted=true`,
             method: 'GET',
             headers: {
-                'Authorization': 'Token ' + authToken
+                'Authorization': 'Bearer ' + accessToken
             },
             success: function(photo) {
                 console.log('Photo data:', photo);
@@ -160,6 +177,18 @@ $(document).ready(function() {
             error: function(xhr) {
                 console.error('Ошибка при загрузке фотографии:', xhr.responseText);
                 photoActions.hide();
+
+                if (xhr.status === 401) {
+                    refreshToken()
+                        .then(newTokens => {
+                            accessToken = newTokens.access;
+                            loadPhotoDetails();
+                        })
+                        .catch(error => {
+                            console.error("Failed to refresh token:", error);
+                            window.location.href = "{% url 'galery:login_template' %}";
+                        });
+                }
             }
         });
     }
@@ -189,7 +218,20 @@ $(document).ready(function() {
                     showAllCommentsButton.hide();
                 }
             })
-            .fail(console.error);
+            .fail(function(xhr) {
+              console.error('Ошибка при загрузке комментариев:', xhr.responseText);
+                if (xhr.status === 401) {
+                    refreshToken()
+                        .then(newTokens => {
+                            accessToken = newTokens.access;
+                            loadInitialComments();
+                        })
+                        .catch(error => {
+                            console.error("Failed to refresh token:", error);
+                            window.location.href = "{% url 'galery:login_template' %}";
+                        });
+                }
+            });
     }
 
 
@@ -209,7 +251,20 @@ $(document).ready(function() {
                 hideAllCommentsButton.show();
                 allCommentsLoaded = true;
             })
-            .fail(console.error);
+             .fail(function(xhr) {
+                console.error('Ошибка при загрузке всех комментариев:', xhr.responseText);
+                if (xhr.status === 401) {
+                    refreshToken()
+                        .then(newTokens => {
+                            accessToken = newTokens.access;
+                            loadAllComments();
+                        })
+                        .catch(error => {
+                            console.error("Failed to refresh token:", error);
+                            window.location.href = "{% url 'galery:login_template' %}";
+                        });
+                }
+            });
     }
 
 
@@ -274,12 +329,36 @@ $(document).ready(function() {
             photo: photoId
         });
 
-        $.post(`/api/comments/`, data)
-            .done(() => {
+        $.ajax({
+            url: `/api/comments/`,
+            type: 'POST',
+            contentType: 'application/json',
+            data,
+            headers: {
+                'Authorization': 'Bearer ' + accessToken,
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            success: function() {
                 loadInitialComments();
                 $(this).find('textarea').val('');
-            })
-            .fail(console.error);
+            },
+            error: function(xhr) {
+                console.error("Ошибка при отправке комментария:", xhr.responseText);
+
+                 if (xhr.status === 401) {
+                    refreshToken()
+                        .then(newTokens => {
+                            accessToken = newTokens.access;
+                             $.ajax(this);
+                            loadInitialComments();
+                        })
+                        .catch(error => {
+                            console.error("Failed to refresh token:", error);
+                            window.location.href = "{% url 'galery:login_template' %}";
+                        });
+                }
+            }
+        });
     });
 
     $(document).on('submit', '[id^="reply-form-"]', function(e) {
@@ -300,15 +379,27 @@ $(document).ready(function() {
             contentType: 'application/json',
             data,
             headers: {
-                'Authorization': 'Token ' + authToken,
+                'Authorization': 'Bearer ' + accessToken,
                 'X-CSRFToken': '{{ csrf_token }}'
             },
             success: function() {
                 loadInitialComments();
                 $(this).find('textarea').val('');
             },
-            error: function(xhr, status, error) {
-                console.error("Ошибка при отправке комментария:", error);
+            error: function(xhr) {
+                console.error("Ошибка при отправке комментария:", xhr.responseText);
+                if (xhr.status === 401) {
+                    refreshToken()
+                        .then(newTokens => {
+                            accessToken = newTokens.access;
+                            loadInitialComments();
+                            $.ajax(this);
+                        })
+                        .catch(error => {
+                            console.error("Failed to refresh token:", error);
+                            window.location.href = "{% url 'galery:login_template' %}";
+                        });
+                }
             }
         });
     });
@@ -328,32 +419,79 @@ $(document).ready(function() {
     $(document).on('click', '.cancel-reply', function() {
         $(this).closest('.reply-form').remove();
     });
-
+    
     $('#like-button').click(function() {
         const data = JSON.stringify({ photo: photoId });
-        $.post(`/api/votes/`, data, null, 'json')
-            .done(response => {
+
+        // Check if accessToken exists
+        if (!accessToken) {
+           console.error('Токен доступа отсутствует');
+           window.location.href = "{% url 'galery:login_template' %}";
+           return;
+       }
+
+        $.ajax({
+            url: `/api/votes/`,
+            method: 'POST',  // Используем POST для создания лайка
+            data,
+            contentType: 'application/json',
+            headers: {
+                'Authorization': 'Bearer ' + accessToken,
+                'X-CSRFToken': '{{ csrf_token }}'  // Отправляем CSRF-токен
+            },
+            success: function(response) {
                 const voteId = response.id;
                 $('#votes-count').text(parseInt($('#votes-count').text()) + 1);
                 $(this).hide();
                 $('#unlike-button').show();
                 $('#unlike-button').data('voteId', voteId);
-            })
-            .fail(console.error);
+            },
+            error: function(xhr) {
+              console.error('Ошибка при постановке лайка:', xhr.responseText);
+              if (xhr.status === 401) {
+                    refreshToken()
+                        .then(newTokens => {
+                            accessToken = newTokens.access;
+                           $('#like-button').click();
+                        })
+                        .catch(error => {
+                            console.error("Failed to refresh token:", error);
+                            window.location.href = "{% url 'galery:login_template' %}";
+                        });
+                }
+            }
+        });
     });
 
     $('#unlike-button').click(function() {
         const voteId = $(this).data('voteId');
         $.ajax({
             url: `/api/votes/${voteId}/`,
-            type: 'DELETE'
+            type: 'DELETE',
+            headers: {
+                'Authorization': 'Bearer ' + accessToken,
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
         })
         .done(() => {
             $('#votes-count').text(parseInt($('#votes-count').text()) - 1);
             $(this).hide();
             $('#like-button').show();
         })
-        .fail(console.error);
+         .fail(function(xhr) {
+             console.error('Ошибка при удалении лайка:', xhr.responseText);
+                if (xhr.status === 401) {
+                    refreshToken()
+                        .then(newTokens => {
+                            accessToken = newTokens.access;
+                             $('#unlike-button').click();
+                        })
+                        .catch(error => {
+                            console.error("Failed to refresh token:", error);
+                            window.location.href = "{% url 'galery:login_template' %}";
+                        });
+                }
+            });
     });
 
     $('#delete-photo-button').click(function() {
@@ -361,7 +499,7 @@ $(document).ready(function() {
             url: `/api/photos/${photoId}/delete_photo/`,
             method: 'POST',
             headers: {
-                'Authorization': 'Token ' + authToken,
+                'Authorization': 'Bearer ' + accessToken,
                 'X-CSRFToken': '{{ csrf_token }}'
             },
             success: function() {
@@ -370,6 +508,18 @@ $(document).ready(function() {
             error: function(xhr) {
                 console.error('Ошибка при удалении фотографии:', xhr.responseText);
                 alert('Ошибка при удалении фотографии.');
+
+                  if (xhr.status === 401) {
+                    refreshToken()
+                        .then(newTokens => {
+                            accessToken = newTokens.access;
+                            $('#delete-photo-button').click();
+                        })
+                        .catch(error => {
+                            console.error("Failed to refresh token:", error);
+                            window.location.href = "{% url 'galery:login_template' %}";
+                        });
+                }
             }
         });
     });
@@ -379,7 +529,7 @@ $(document).ready(function() {
             url: `/api/photos/${photoId}/restore_photo/`,
             method: 'POST',
             headers: {
-                'Authorization': 'Token ' + authToken,
+                'Authorization': 'Bearer ' + accessToken,
                 'X-CSRFToken': '{{ csrf_token }}'
             },
             success: function(response) {
@@ -393,27 +543,68 @@ $(document).ready(function() {
                 } catch (e) {
                     alert('Ошибка при восстановлении фотографии: ' + xhr.responseText);
                 }
+
+                  if (xhr.status === 401) {
+                    refreshToken()
+                        .then(newTokens => {
+                            accessToken = newTokens.access;
+                            $('#restore-photo-button').click();
+                        })
+                        .catch(error => {
+                            console.error("Failed to refresh token:", error);
+                            window.location.href = "{% url 'galery:login_template' %}";
+                        });
+                }
             }
         });
     });
 
     $(document).on('click', '#cancel-delete', function() {
-        $.post(`/api/photos/${photoId}/restore_photo/`)
-            .done(() => location.reload());
+        $.post(`/api/photos/${photoId}/restore_photo/`,{},
+          {
+                headers: {
+                'Authorization': 'Bearer ' + accessToken,
+                'X-CSRFToken': '{{ csrf_token }}'
+            }})
+            .done(() => location.reload())
+             .fail(function(xhr) {
+                 console.error('Ошибка при отмене удаления:', xhr.responseText);
+                if (xhr.status === 401) {
+                    refreshToken()
+                        .then(newTokens => {
+                            accessToken = newTokens.access;
+                             $(document).on('click', '#cancel-delete', function() {
+                                   $.post(`/api/photos/${photoId}/restore_photo/`,{},
+                                   {
+                                        headers: {
+                                        'Authorization': 'Bearer ' + accessToken,
+                                        'X-CSRFToken': '{{ csrf_token }}'
+                                    }})
+                                    .done(() => location.reload());
+                               });
+                        })
+                        .catch(error => {
+                            console.error("Failed to refresh token:", error);
+                            window.location.href = "{% url 'galery:login_template' %}";
+                        });
+                }
+            });
     });
 
     hideAllCommentsButton.click(function() {
         hideAllComments();
     });
 
+    // Use localStorage.getItem() to get accessToken
+    if (localStorage.getItem('accessToken')) {
+    accessToken = localStorage.getItem('accessToken');
+    } else {
+    // If token is missing, redirect user to login page
+    window.location.href = '{% url "galery:login_template" %}';
+    }
+
     loadPhotoDetails();
     updateAuthUI();
-
-    window.addEventListener('storage', function(event) {
-        if (event.key === 'authToken') {
-            updateAuthUI();
-        }
-    });
 });
 </script>
 {% endblock %}

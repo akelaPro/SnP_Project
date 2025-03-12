@@ -3,7 +3,7 @@ from django.conf.urls.static import static
 from django.urls import path, include, re_path
 from rest_framework import routers
 from API.views import PhotoViewSet, CommentViewSet, VoteViewSet
-from API import views
+from API.views import *
 
 router = routers.DefaultRouter()
 router.register(r'api/photos', PhotoViewSet, basename='photo')
@@ -14,12 +14,14 @@ app_name = 'API'
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('api/v1/auth/', include('djoser.urls')),
-    re_path(r'^auth/', include('djoser.urls.authtoken')),
-    #path('api/photos/upload/', views.PhotoUploadView.as_view(), name='photo_upload'),
-    path('api/user/profile/update/', views.UpdateUserProfileAPIView.as_view(), name='update_user_profile'),
-    path('api/user/profile/', views.UserProfileAPIView.as_view(), name='user_profile'),
-    path('api/user/photos/', views.UserLisPhoto.as_view(), name='user_photos'),
+    #path('api/v1/auth/', include('djoser.urls')),
+    path('api/login/', LoginView.as_view(), name='login'),
+    path('api/refresh/', RefreshView.as_view(), name='refresh'),
+    path('api/logout/', LogoutView.as_view(), name='logout'),
+    #re_path(r'^auth/', include('djoser.urls.authtoken')),
+    path('api/user/profile/update/', UpdateUserProfileAPIView.as_view(), name='update_user_profile'),
+    path('api/user/profile/', UserProfileAPIView.as_view(), name='user_profile'),
+    path('api/user/photos/', UserLisPhoto.as_view(), name='user_photos'),
     
 ]
 
