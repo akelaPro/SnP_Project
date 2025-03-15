@@ -1,10 +1,9 @@
-# models.py
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
 
 def get_default_access_expires():
-    return timezone.now() + timezone.timedelta(minutes=15)
+    return timezone.now() + timezone.timedelta(minutes=2)  # Access token expires in 2 minutes
 
 def get_default_refresh_expires():
     return timezone.now() + timezone.timedelta(days=7)

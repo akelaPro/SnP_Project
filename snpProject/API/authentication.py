@@ -1,9 +1,13 @@
-# authentication.py
 from rest_framework import authentication, exceptions
 from django.utils.translation import gettext_lazy as _
 from galery.models import *
 from .utils import hash_token
 from django.utils import timezone
+import logging
+from django.contrib.auth.backends import BaseBackend
+
+
+logger = logging.getLogger(__name__)
 
 class CustomTokenAuthentication(authentication.BaseAuthentication):
     keyword = 'Bearer'
@@ -24,20 +28,22 @@ class CustomTokenAuthentication(authentication.BaseAuthentication):
         access_hash = hash_token(token)
         try:
             user_token = UserToken.objects.select_related('user').get(access_token_hash=access_hash)
+            logger.debug(f"Token found for user: {user_token.user.username}")
         except UserToken.DoesNotExist:
+            logger.warning("Invalid token.")
             raise exceptions.AuthenticationFailed(_('Invalid token.'))
 
         if timezone.now() > user_token.access_token_expires:
+            logger.warning(f"Token expired. Expires at: {user_token.access_token_expires}, Now: {timezone.now()}")
             raise exceptions.AuthenticationFailed(_('Token has expired.'))
+
+        # Обновляем время жизни токена при каждом использовании
+        user_token.access_token_expires = timezone.now() + timezone.timedelta(minutes=2)
+        user_token.save(update_fields=['access_token_expires'])
+        logger.debug(f"Token refreshed. New expiry: {user_token.access_token_expires}")
 
         return (user_token.user, None)
     
-
-
-from django.contrib.auth.backends import BaseBackend
-from django.contrib.auth import get_user_model
-
-User = get_user_model()
 class EmailAuthBackend(BaseBackend):
     def authenticate(self, request, username=None, password=None, **kwargs):
         try:

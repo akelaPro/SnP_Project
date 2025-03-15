@@ -110,7 +110,7 @@
                         method: 'POST',
                         headers: {
                             'Authorization': 'Bearer ' + accessToken, //  Access Token
-                            'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val()
+                            'X-CSRFToken': '{{ csrf_token }}'
                         },
                         success: function(data) {
                             localStorage.removeItem('accessToken'); //  Access Token
