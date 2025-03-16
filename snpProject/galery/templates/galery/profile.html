@@ -49,16 +49,16 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
     $(document).ready(function() {
-        const accessToken = localStorage.getItem('accessToken'); //  Получаем access token
+        const accessToken = localStorage.getItem('accessToken'); 
         if (!accessToken) {
             console.error('Токен доступа отсутствует');
-            //  Можно перенаправить на страницу логина:
+          
             //  window.location.href = "{% url 'galery:login_template' %}";
             return;
         }
 
         function loadPhotos(search = '', ordering = '') {
-            $('#photos-spinner').show(); //  Показываем спиннер загрузки фотографий
+            $('#photos-spinner').show(); 
             let url = '{% url "API:user_photos" %}';
             const params = [];
 
@@ -82,10 +82,10 @@
                 url: url,
                 method: 'GET',
                 headers: {
-                    'Authorization': 'Bearer ' + accessToken // Отправляем Bearer токен
+                    'Authorization': 'Bearer ' + accessToken 
                 },
                 success: function(data) {
-                    $('#photos-spinner').hide(); // Скрываем спиннер загрузки фотографий
+                    $('#photos-spinner').hide(); 
                     let photosHtml = '';
                     if (data.length > 0) {
                         data.forEach(photo => {
@@ -110,9 +110,9 @@
                     $('#photos').html(photosHtml);
                 },
                 error: function(xhr) {
-                    $('#photos-spinner').hide(); // Скрываем спиннер в случае ошибки
+                    $('#photos-spinner').hide();
                     console.error('Ошибка при загрузке фотографий:', xhr.responseText);
-                    // Можно добавить обработку ошибок, например, показ сообщения
+
                 }
             });
         }
@@ -122,13 +122,13 @@
             url: '{% url "API:user_profile" %}',
             method: 'GET',
             headers: {
-                'Authorization': 'Bearer ' + accessToken // Отправляем Bearer токен
+                'Authorization': 'Bearer ' + accessToken 
             },
             beforeSend: function(){
-              $('#profile-spinner').show(); // Показываем спиннер перед запросом
+              $('#profile-spinner').show(); 
             },
             success: function(data) {
-                $('#profile-spinner').hide(); // Скрываем спиннер после успешной загрузки
+                $('#profile-spinner').hide(); 
                 const avatarUrl = data.avatar;
                 $('#profile-info').html(`
                     <img src="" alt="Avatar" class="img-fluid rounded-circle mb-3" style="width: 100px; height: 100px;">
@@ -138,13 +138,13 @@
                 `);
             },
             error: function(xhr) {
-                $('#profile-spinner').hide(); // Скрываем спиннер в случае ошибки
+                $('#profile-spinner').hide(); 
                 console.error('Ошибка при загрузке профиля:', xhr.responseText);
-                // Можно добавить обработку ошибок, например, показ сообщения
+                
             }
         });
 
-        // Первоначальная загрузка фотографий
+
         loadPhotos();
 
         // Обработчики изменения сортировки и фильтрации
@@ -152,11 +152,11 @@
             loadPhotos();
         });
         $('#sort-select').change(function() {
-            loadPhotos($('#search-input').val(), $(this).val()); // Передаем параметры поиска и сортировки
+            loadPhotos($('#search-input').val(), $(this).val()); 
         });
         $('#search-form').submit(function(e){
             e.preventDefault();
-             loadPhotos($('#search-input').val(), $('#sort-select').val()); // Передаем параметры поиска и сортировки
+             loadPhotos($('#search-input').val(), $('#sort-select').val()); 
         });
     });
 </script>

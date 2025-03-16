@@ -40,15 +40,15 @@
                 data,
 
                 headers: {
-                    'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val()
+                     'X-CSRFToken': '{{ csrf_token }}' 
                 },
                 success: function(data) {
-                    console.log("Токен после входа:", data.access); // Проверка access токена
-                    console.log("Токен после входа:", data.refresh); // Проверка refresh токена
+                    console.log("Токен после входа:", data.access); 
+                    console.log("Токен после входа:", data.refresh); 
 
-                    if (data.access && data.refresh) {  // Проверяем, что access и refresh токены существуют
-                        localStorage.setItem('accessToken', data.access);  // Сохраняем access token
-                        localStorage.setItem('refreshToken', data.refresh); // Сохраняем refresh token
+                    if (data.access && data.refresh) {  
+                        localStorage.setItem('accessToken', data.access);  
+                        localStorage.setItem('refreshToken', data.refresh); 
                         window.location.href = '{% url "galery:home" %}';
                     } else {
                         alert('Не удалось получить токены.');
@@ -62,7 +62,7 @@
     });
 
     $(document).ajaxSend(function(event, xhr, settings) {
-        const token = localStorage.getItem('accessToken'); // Получаем access token
+        const token = localStorage.getItem('accessToken'); 
         if (token) {
             xhr.setRequestHeader('Authorization', 'Bearer ' + token); // Отправляем как Bearer
         }
