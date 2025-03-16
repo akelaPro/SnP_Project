@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'channels_redis',
     'API.apps.ApiConfig',
     'notification.apps.NotificationConfig',
+    'drf_spectacular',
     
 ]
 
@@ -211,3 +212,10 @@ AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
     'API.authentication.EmailAuthBackend',
 ]
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'snpProject',
+    'DESCRIPTION': 'Your project description',
+    'VERSION': '1.0.0',  # Replace with your API version
+    'SERVE_INCLUDE_SCHEMA': False, # disables schema view in production
+}

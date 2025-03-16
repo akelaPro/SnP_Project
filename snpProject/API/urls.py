@@ -23,6 +23,7 @@ urlpatterns = [
     path('api/user/profile/update/', UpdateUserProfileAPIView.as_view(), name='update_user_profile'),
     path('api/user/profile/', UserProfileAPIView.as_view(), name='user_profile'),
     path('api/user/photos/', UserLisPhoto.as_view(), name='user_photos'),
+
     
 ]
 
