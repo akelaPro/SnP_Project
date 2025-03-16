@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from API.serializers import *
 from django.contrib.auth import get_user_model
 from galery.models import Photo
-
+from rest_framework.generics import CreateAPIView
 
 
 
@@ -36,3 +36,7 @@ class UpdateUserProfileAPIView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=400)
+    
+
+class CreateUser(CreateAPIView):
+    serializer_class = CreateSerializer

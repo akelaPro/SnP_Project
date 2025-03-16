@@ -9,10 +9,8 @@
 
 {% block extra_scripts %}
 <script>
-let accessToken = localStorage.getItem('accessToken');
+    let accessToken = localStorage.getItem('accessToken');
     let refreshTokenValue = localStorage.getItem('refreshToken'); 
-    console.log("Initial accessToken:", accessToken); 
-    console.log("Initial refreshToken:", refreshTokenValue); 
     function loadPhotos(search = '', ordering = '') {
         const baseUrl = '/api/photos/';
         let url = baseUrl + '?';

@@ -55,7 +55,9 @@
         // Обработчик аутентификации
         $(document).ready(function() {
             const accessToken = localStorage.getItem('accessToken');
-            const refreshToken = localStorage.getItem('refreshToken'); // Получаем refresh token
+            const refreshToken = localStorage.getItem('refreshToken');
+            console.log("Initial accessToken from localStorage:", accessToken);  // ADDED
+            console.log("Initial refreshToken from localStorage:", refreshToken); // Получаем refresh token
             const authLinks = $('#auth-links');
 
             const updateAuthUI = () => {

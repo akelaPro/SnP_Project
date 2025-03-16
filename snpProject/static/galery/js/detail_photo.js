@@ -1,9 +1,9 @@
 $(document).ready(function() {
     const photoId = window.location.pathname.split('/').filter(Boolean).pop();
     let accessToken = localStorage.getItem('accessToken');
-    let refreshTokenValue = localStorage.getItem('refreshToken'); // ПЕРЕИМЕНОВАНО
+    let refreshToken = localStorage.getItem('refreshToken'); // Единое имя переменной
     console.log("Initial accessToken:", accessToken); // Log initial accessToken
-    console.log("Initial refreshToken:", refreshTokenValue); // Log initial refreshToken
+    console.log("Initial refreshToken:", refreshToken);
 
     // Элементы UI
     const commentForm = $('#comment-form');
@@ -67,13 +67,13 @@ $(document).ready(function() {
             isRefreshing = true;
             originalOptions._retry = true;
 
-            refreshToken()
+            refreshTokenRequest()
                 .then(newTokens => {
-                    console.log("Token refreshed successfully."); // Log successful refresh
+                    console.log("Token refreshed successfully.");
                     accessToken = newTokens.access;
-                    refreshTokenValue = newTokens.refresh; // ПЕРЕИМЕНОВАНО
+                    refreshToken = newTokens.refresh; // Было refreshTokenValue
                     localStorage.setItem('accessToken', accessToken);
-                    localStorage.setItem('refreshToken', refreshTokenValue); // ПЕРЕИМЕНОВАНО
+                    localStorage.setItem('refreshToken', refreshToken);
                     console.log("New accessToken:", accessToken); // Log new accessToken
                     originalOptions.headers['Authorization'] = 'Bearer ' + accessToken;
                     processQueue(null, accessToken);
@@ -97,14 +97,14 @@ $(document).ready(function() {
         if (tokenRefreshTimeout) clearTimeout(tokenRefreshTimeout);
         const refreshTime = (expiresIn - 30) * 1000; // Обновляем за 30 сек до истечения
         console.log("Scheduling token refresh in", refreshTime / 1000, "seconds"); // Log scheduling
-        tokenRefreshTimeout = setTimeout(refreshToken, refreshTime);
+        tokenRefreshTimeout = setTimeout(refreshTokenRequest, refreshTime);
     }
 
     // Глобальная функция refreshToken (объявление только здесь!)
-    function refreshToken() {
+    function refreshTokenRequest() { // Переименовано чтобы избежать конфликта
         return new Promise((resolve, reject) => {
-            const refreshTokenValue = localStorage.getItem('refreshToken');
-            if (!refreshTokenValue) {
+            const currentRefreshToken = localStorage.getItem('refreshToken');
+            if (!currentRefreshToken) {
                 console.error("No refresh token found. Redirecting to login.");
                 localStorage.removeItem('accessToken');
                 localStorage.removeItem('refreshToken');
@@ -112,7 +112,7 @@ $(document).ready(function() {
                 return reject("No refresh token");
             }
 
-            const data = JSON.stringify({ refresh: refreshTokenValue });
+            const data = JSON.stringify({ refresh: currentRefreshToken });
             console.log("Attempting to refresh token...");
 
             $.ajax({
@@ -125,8 +125,8 @@ $(document).ready(function() {
                     console.log("Token refresh success:", data);
                     localStorage.setItem('accessToken', data.access);
                     localStorage.setItem('refreshToken', data.refresh);
-                    accessToken = data.access;
-                    refreshTokenValue = data.refresh;
+                    accessToken = data.access; // Обновляем переменную верхнего уровня
+                    refreshToken = data.refresh; // Обновляем переменную верхнего уровня
                     scheduleTokenRefresh(120);
                     resolve(data);
                 },
@@ -160,12 +160,12 @@ $(document).ready(function() {
 
     // ================== Photo Loading ==================
     function loadPhotoDetails() {
-        console.log("Loading photo details..."); // Log photo load start
+        console.log("Loading photo details...");
         $.ajax({
             url: `/api/photos/${photoId}/?include_deleted=true`,
             method: 'GET',
             success: function(photo) {
-                console.log("Photo details loaded successfully."); // Log success
+                console.log("Photo details loaded successfully."); 
                 $('#photo-title').text(photo.title);
                 $('#photo-image').attr('src', photo.image || '');
                 $('#photo-author').text(photo.author.username);
@@ -304,14 +304,14 @@ $(document).ready(function() {
     }
 
     function loadAllComments() {
-        console.log("Loading all comments..."); // Log all comments load start
+        console.log("Loading all comments..."); 
         $.get(`/api/comments/?photo=${photoId}`)
             .done(comments => {
-                console.log("All comments loaded successfully."); // Log success
+                console.log("All comments loaded successfully."); 
                 const commentsList = $('#comments-list');
                 commentsList.empty();
 
-                // Отображаем все корневые комментарии
+              
                 const rootComments = comments.filter(comment => !comment.parent);
                 rootComments.forEach(comment => {
                     commentsList.append(buildCommentHTML(comment, comments));
@@ -396,12 +396,12 @@ $(document).ready(function() {
     }
 
     // ================== Event Handlers ==================
-    // Обработчик для кнопки "Показать все комментарии"
+
     showAllCommentsButton.click(function() {
         loadAllComments();
     });
 
-    // Обработчик для кнопки "Скрыть все комментарии"
+
     hideAllCommentsButton.click(function() {
         hideAllComments();
     });
@@ -456,8 +456,8 @@ $(document).ready(function() {
             success: function(response) {
                 const voteId = response.id;
                 $('#votes-count').text(parseInt($('#votes-count').text()) + 1);
-                $('#like-button').hide(); // Скрываем кнопку лайка
-                $('#unlike-button').show().data('voteId', voteId); // Показываем кнопку анлайка и сохраняем voteId
+                $('#like-button').hide(); 
+                $('#unlike-button').show().data('voteId', voteId); 
             },
             error: function(xhr) {
                 console.error('Ошибка при постановке лайка:', xhr.responseText);

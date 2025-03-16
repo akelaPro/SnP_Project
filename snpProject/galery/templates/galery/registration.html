@@ -3,97 +3,95 @@
 {% block content %}
 <div class="container mt-5">
     <h2>Регистрация</h2>
-    <form id="registrationForm">
+    <form id="registrationForm" enctype="multipart/form-data">
         {% csrf_token %}
         <div class="mb-3">
-            <label for="username" class="form-label">Username</label>
-            <input type="username" class="form-control" id="username" required>
-        </div>
-        <div class="mb-3">
             <label for="email" class="form-label">Email</label>
-            <input type="email" class="form-control" id="email" required>
+            <input type="email" class="form-control" id="email" name="email" required>
         </div>
         <div class="mb-3">
             <label for="password" class="form-label">Пароль</label>
-            <input type="password" class="form-control" id="password" required>
+            <input type="password" class="form-control" id="password" name="password" required>
         </div>
         <div class="mb-3">
-            <label for="re_password" class="form-label">Повторите пароль</label>
-            <input type="password" class="form-control" id="re_password" required>
+            <label for="password2" class="form-label">Повторите пароль</label>
+            <input type="password" class="form-control" id="password2" name="password2" required>
         </div>
         <div class="mb-3">
-            <label for="avatar" class="form-label">Аватар</label>
-            <input type="file" class="form-control" id="avatar">
+            <label for="avatar" class="form-label">Аватар (необязательно)</label>
+            <input type="file" class="form-control" id="avatar" name="avatar" accept="image/*">
         </div>
         <button type="submit" class="btn btn-primary">Зарегистрироваться</button>
+        <div id="registrationMessage" class="mt-3"></div>
     </form>
 </div>
+{% endblock %}
 
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+{% block extra_scripts %}
 <script>
 $(document).ready(function() {
     $('#registrationForm').submit(function(e) {
         e.preventDefault();
 
+        const formData = new FormData();
         const email = $('#email').val();
         const password = $('#password').val();
-        const re_password = $('#re_password').val(); // Добавлено
-        const username = $('#username').val();
+        const password2 = $('#password2').val();
         const avatar = $('#avatar')[0].files[0];
 
-        if (password !== re_password) {
-            alert("Пароли не совпадают.");
-            return;
-        }
+        // Проверяем, что значения получены и добавляются в formData
+        console.log('Email:', email);
+        console.log('Password:', password);
+        console.log('Password2:', password2);
 
-        const formData = new FormData();
-        formData.append('username', username);
         formData.append('email', email);
         formData.append('password', password);
-        formData.append('re_password', re_password); // Добавлено
+        formData.append('password2', password2);
+
         if (avatar) {
+            console.log('Avatar file:', avatar); // Log avatar file
             formData.append('avatar', avatar);
         }
 
+        // Log FormData entries
+        for (var pair of formData.entries()) {
+            console.log(pair[0]+ ', ' + pair[1]); 
+        }
+
         $.ajax({
-            url: '/API/api/v1/auth/users/',  
+            url: '/api/register/',
             method: 'POST',
-            data: formData,
+            data: formData, // Исправлено здесь
             processData: false,
             contentType: false,
             headers: {
                 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val()
             },
             success: function(data) {
-                const loginData = JSON.stringify({
-                    email: email,
-                    password: password
-                });
-
-                $.ajax({
-                    url: '/API/auth/token/login/', 
-                    method: 'POST',
-                    data: loginData, 
-                    contentType: 'application/json',
-                    headers: {
-                        'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val()
-                    },
-                    success: function(data) {
-                        localStorage.setItem('authToken', data.auth_token);
-                        window.location.href = '{% url "galery:home" %}';
-                    },
-                    error: function(jqXHR, textStatus, errorThrown) {
-                        alert('Ошибка при автоматической авторизации.');
-                    }
-                });
+                console.log('Registration success:', data);
+                $('#registrationMessage').html('<div class="alert alert-success">Регистрация прошла успешно!</div>');
+                // Очищаем форму (необязательно)
+                $('#registrationForm')[0].reset();
+                // Выполняем вход в систему после успешной регистрации
+                loginUser (email, password);
             },
             error: function(jqXHR, textStatus, errorThrown) {
-                alert('Ошибка при регистрации: ' + jqXHR.responseText); 
+                console.error('Ошибка при регистрации:', jqXHR);
+                let errorMessage = 'Ошибка при регистрации: ';
+                try {
+                    const errors = jqXHR.responseJSON;
+                    console.log('Errors from server:', errors);  // Log server errors
+                    for (const field in errors) {
+                        errorMessage += `${field}: ${errors[field].join(', ')} `;
+                    }
+                } catch (e) {
+                    errorMessage += jqXHR.responseText;
+                }
+                $('#registrationMessage').html('<div class="alert alert-danger">' + errorMessage + '</div>');
             }
         });
     });
 });
-
-
 </script>
 {% endblock %}
+
