@@ -1,8 +1,7 @@
 from datetime import timedelta
 from django.shortcuts import get_object_or_404
-from rest_framework import viewsets
+from rest_framework import viewsets, status
 from rest_framework.response import Response
-from rest_framework import status
 from API.task import delete_photo
 from galery.models import Photo
 from notification.models import Notification
@@ -10,14 +9,14 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from django.utils import timezone
 from django.db.models import Count, Q
-from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from API.serializers import *
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import action
 import logging
 from rest_framework.filters import SearchFilter, OrderingFilter
-from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
+from drf_spectacular.utils import extend_schema, OpenApiParameter
+from rest_framework.exceptions import PermissionDenied
 
 
 
@@ -42,28 +41,25 @@ class BaseViewSet(viewsets.ModelViewSet):
             }
         )
 
-
 @extend_schema(tags=["Photos"])
 class PhotoViewSet(BaseViewSet):
     queryset = Photo.objects.all()
     serializer_class = PhotoSerializer
     parser_classes = [MultiPartParser, FormParser]
-    # Добавляем OrderingFilter и настраиваем поиск
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields = ['title', 'author__username', 'description']
     ordering_fields = ['votes_count', 'published_at', 'comments_count']
-    ordering = ['-published_at']  # Сортировка по умолчанию
+    ordering = ['-published_at']
 
     def get_queryset(self):
         queryset = super().get_queryset()
         if self.request.user.is_authenticated:
             queryset = Photo.objects.filter(
                 Q(moderation='3') | Q(moderation='1', author=self.request.user)
-                )
+            )
         else:
             queryset = Photo.objects.filter(moderation='3')
 
-        # Аннотации для сортировки
         queryset = queryset.annotate(
             votes_count=Count('votes', distinct=True),
             comments_count=Count('comments', distinct=True)
@@ -71,62 +67,46 @@ class PhotoViewSet(BaseViewSet):
 
         return queryset
 
-    
+    def perform_destroy(self, instance):
+        """
+        Отмечает фотографию как "удаленную" и запускает Celery task для фактического удаления через 30 секунд.
+        """
+        if instance.author != self.request.user:
+            raise PermissionDenied("У вас нет прав на удаление этой фотографии.")
 
-    @extend_schema(
-        description="Delete a photo (marks as deleted).",
-        request=PhotoSerializer,
-        responses={200: PhotoSerializer, 403: {'description': 'Permission denied'}},
-    )
-    @action(detail=True, methods=['post'])
-    def delete_photo(self, request, pk=None):
-        photo = get_object_or_404(Photo, id=pk)
-    
-        if photo.author != request.user:
-            return Response({'detail': 'У вас нет прав на удаление этой фотографии.'}, status=status.HTTP_403_FORBIDDEN)
+        instance.moderation = '1'  # Пометка на удаление
+        instance.deleted_at = timezone.now()
+        instance.save()
 
-        photo.moderation = '1'
-        photo.deleted_at = timezone.now()
-        photo.save()
-    
-    
-        delete_photo.apply_async(args=(photo.id,), countdown=30)  
-    
-        serializer = self.get_serializer(photo)
-        self.notify_user(request.user, f"Фотография '{photo.title}' помечена на удаление.", 'photo_deleted')
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        delete_photo.apply_async(args=(instance.id,), countdown=30)
 
-
+        self.notify_user(self.request.user, f"Фотография '{instance.title}' помечена на удаление.", 'photo_deleted')
 
     @extend_schema(
         description="Restore a deleted photo.",
-        request=PhotoSerializer,
         responses={200: PhotoSerializer, 400: {'description': 'Invalid request'}, 403: {'description': 'Permission denied'}},
     )
     @action(detail=True, methods=['post'])
     def restore_photo(self, request, pk=None):
+        """
+        Восстанавливает фотографию, если она еще не была физически удалена.
+        """
         logger.info(f"restore_photo called with pk={pk}, user={request.user}")
         try:
-        
-            photo = self.get_object()  
-            logger.info(f"Photo found: {photo.id}, moderation={photo.moderation}, deleted_at={photo.deleted_at}")
+            photo = self.get_object()
 
-        
             if photo.author != request.user:
                 logger.warning("Permission denied.")
                 return Response({'detail': 'У вас нет прав на восстановление этой фотографии.'}, status=status.HTTP_403_FORBIDDEN)
 
-        
             if photo.moderation != '1' or photo.deleted_at is None:
                 logger.warning(f"Photo not marked for deletion. moderation={photo.moderation}, deleted_at={photo.deleted_at}")
                 return Response({'detail': 'Фотография не помечена на удаление.'}, status=status.HTTP_400_BAD_REQUEST)
 
-       
-            if timezone.now() > photo.deleted_at + timezone.timedelta(seconds=60):
+            if timezone.now() > photo.deleted_at + timedelta(seconds=60):
                 logger.warning("Restore time expired.")
                 return Response({'detail': 'Время для восстановления фотографии истекло.'}, status=status.HTTP_400_BAD_REQUEST)
 
-       
             photo.moderation = '2'
             photo.deleted_at = None
             photo.save()
