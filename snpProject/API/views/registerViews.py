@@ -3,7 +3,10 @@ from API.serializers import RegistrationSerializer
 from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth import get_user_model
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
 
+
+@extend_schema(tags=["Registration"])
 class RegistrationAPIView(generics.CreateAPIView):
     queryset = get_user_model().objects.all()
     serializer_class = RegistrationSerializer

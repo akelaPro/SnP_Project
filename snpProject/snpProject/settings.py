@@ -176,6 +176,8 @@ LOGOUT_REDIRECT_URL = 'galery:home'
 ASGI_APPLICATION = 'snpProject.asgi.application'
 
 REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
         'rest_framework.renderers.BrowsableAPIRenderer',
@@ -187,25 +189,14 @@ REST_FRAMEWORK = {
 
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'API.authentication.CustomTokenAuthentication',
-    ]
+    ],
+    
+
 }
 
 
 
-#DJOSER = {
-    #'LOGIN_FIELD': 'email',
-    #'USER_CREATE_PASSWORD_RETYPE': True,
-    #'SERIALIZERS': {
-       # 'user_create': 'API.serializers.CreateSerializer',
-      #  'user': 'API.serializers.UserSerializer',
-      #  'current_user': 'API.serializers.UserSerializer',
-    #},
-   # 'PERMISSIONS': {
-   #     'user_list': ['rest_framework.permissions.IsAdminUser'],
-   #     'user': ['rest_framework.permissions.IsAuthenticated'],
-   # },
-   # #'TOKEN_MODEL': None,  # Use default Token model
-#}
+
 
 
 AUTHENTICATION_BACKENDS = [

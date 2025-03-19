@@ -17,6 +17,8 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import action
 import logging
 from rest_framework.filters import SearchFilter, OrderingFilter
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
+
 
 
 logger = logging.getLogger(__name__)
@@ -40,6 +42,8 @@ class BaseViewSet(viewsets.ModelViewSet):
             }
         )
 
+
+@extend_schema(tags=["Photos"])
 class PhotoViewSet(BaseViewSet):
     queryset = Photo.objects.all()
     serializer_class = PhotoSerializer
@@ -69,6 +73,11 @@ class PhotoViewSet(BaseViewSet):
 
     
 
+    @extend_schema(
+        description="Delete a photo (marks as deleted).",
+        request=PhotoSerializer,
+        responses={200: PhotoSerializer, 403: {'description': 'Permission denied'}},
+    )
     @action(detail=True, methods=['post'])
     def delete_photo(self, request, pk=None):
         photo = get_object_or_404(Photo, id=pk)
@@ -89,6 +98,11 @@ class PhotoViewSet(BaseViewSet):
 
 
 
+    @extend_schema(
+        description="Restore a deleted photo.",
+        request=PhotoSerializer,
+        responses={200: PhotoSerializer, 400: {'description': 'Invalid request'}, 403: {'description': 'Permission denied'}},
+    )
     @action(detail=True, methods=['post'])
     def restore_photo(self, request, pk=None):
         logger.info(f"restore_photo called with pk={pk}, user={request.user}")

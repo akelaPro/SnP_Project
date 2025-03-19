@@ -2,8 +2,11 @@ from .photos_vews import BaseViewSet
 from galery.models import Comment
 from API.serializers import *
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from drf_spectacular.utils import extend_schema
 
 
+
+@extend_schema(tags=["Comments"])
 class CommentViewSet(BaseViewSet):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer

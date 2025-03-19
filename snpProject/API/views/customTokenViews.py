@@ -12,6 +12,13 @@ from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import extend_schema
 
 
+
+@extend_schema(
+    tags=["Auth"],
+    description="Авторизация пользователя.",
+    request=LoginSerializer,
+    responses={200: LoginSerializer, 400: 'Bad Request'},
+)
 class LoginView(APIView):
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
@@ -44,6 +51,12 @@ class LoginView(APIView):
             'refresh': refresh_token,
         })
 
+
+@extend_schema(
+    tags=["Auth"],
+    description="Обновление токена (если необходимо)",
+    responses={200: RefreshSerializer, 400: 'Bad Request'},
+)
 class RefreshView(APIView):
     def post(self, request):
         serializer = RefreshSerializer(data=request.data)
@@ -74,6 +87,12 @@ class RefreshView(APIView):
             'refresh': new_refresh,
         })
 
+
+@extend_schema(
+    tags=["Auth"],
+    description="Выход пользователя",
+    responses={204: 'No Content'},
+)
 class LogoutView(APIView):
     authentication_classes = [CustomTokenAuthentication]
     permission_classes = [IsAuthenticated]
@@ -86,14 +105,13 @@ class LogoutView(APIView):
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+@extend_schema(
+    description="Проверяет, действителен ли токен пользователя.",
+    responses={200: {'description': 'Token is valid'}},  # Укажите описание ответа
+)
 class VerifyTokenView(APIView):
-    
     authentication_classes = [CustomTokenAuthentication]
     permission_classes = [IsAuthenticated]
 
-    @extend_schema(
-        description="Проверяет, действителен ли токен пользователя.",
-        responses={200: 'Token is valid'}
-    )
     def get(self, request):
         return Response({"status": "valid"}, status=status.HTTP_200_OK)

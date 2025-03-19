@@ -4,13 +4,20 @@ from .photos_vews import BaseViewSet
 from galery.models import Vote
 from API.serializers import *
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from drf_spectacular.utils import extend_schema
 
-
+@extend_schema(tags=["Votes"])
 class VoteViewSet(BaseViewSet):
     queryset = Vote.objects.all()
     serializer_class = VoteSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
 
+
+    @extend_schema(
+        description="Create a vote for a photo.",
+        request=VoteSerializer,
+        responses={201: VoteSerializer, 400: {'description': 'Bad request'}},
+    )
     def create(self, request, *args, **kwargs):
         if self.request.user.is_authenticated:
             photo_id = request.data.get('photo')
@@ -28,6 +35,11 @@ class VoteViewSet(BaseViewSet):
             serializer = self.get_serializer(vote)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+
+    @extend_schema(
+        description="Delete a vote (unlike).",
+        responses={204: '', 403: {'description': 'Forbidden'}},
+    )
     def destroy(self, request, *args, **kwargs):
         
         vote = self.get_object()
