@@ -18,7 +18,7 @@ from asgiref.sync import async_to_sync
 class PhotoAdmin(admin.ModelAdmin):
     list_display = ('title', 'author', 'moderation', 'published_at')
     actions = ('approve_photos', 'reject_photos') # <<<<===== вот это добавил
-
+    readonly_fields = ('old_image',)
     @admin.action(description='Approve photos') # <<<<===== вот это добавил
     def approve_photos(self, request, queryset):
         for photo in queryset:

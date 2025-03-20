@@ -129,3 +129,27 @@ class PhotoViewSet(BaseViewSet):
         except Exception as e:
             logger.exception(f"Ошибка при восстановлении фото {pk}: {e}")  # Лог с исключением
             return Response({"detail": str(e)}, status=500)
+        
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        
+        # Проверяем, был ли изменён файл фотографии
+        if 'image' in request.FILES:
+            old_image = instance.image
+            instance.old_image = old_image  # Сохраняем старую версию фото
+            instance.moderation = '2'  # Отправляем на модерацию
+            instance.save()
+            
+            # Уведомляем пользователя о повторной модерации
+            self.notify_user(
+                instance.author,
+                f"Ваша фотография '{instance.title}' отправлена на повторную модерацию.",
+                'photo_re_moderation'
+            )
+        
+        # Обновляем остальные поля
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        
+        return Response(serializer.data)

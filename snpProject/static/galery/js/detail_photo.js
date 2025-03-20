@@ -168,9 +168,13 @@ $(document).ready(function() {
                 $('#photo-author-avatar').attr('src', photo.author.avatar || '');
                 $('#photo-description').text(photo.description);
                 $('#votes-count').text(photo.votes_count || 0);
-    
+
+                // Заполняем форму редактирования
+                $('#edit-title').val(photo.title);
+                $('#edit-description').val(photo.description);
+
                 window.canEdit = photo.can_edit;
-    
+
                 if (window.canEdit) {
                     // Условие для отображения кнопок
                     if (photo.moderation === '1' && photo.deleted_at) {
@@ -181,8 +185,10 @@ $(document).ready(function() {
                         restorePhotoButton.hide();
                     }
                     photoActions.show();
+                    $('#edit-photo-button').show(); // Показываем кнопку редактирования
                 } else {
                     photoActions.hide();
+                    $('#edit-photo-button').hide(); // Скрываем кнопку редактирования
                 }
             },
             error: function(xhr) {
@@ -191,7 +197,6 @@ $(document).ready(function() {
             }
         });
     }
-    
     
     $('#delete-photo-button').click(function() {
         $.ajax({
@@ -539,6 +544,38 @@ $(document).ready(function() {
                 console.error('Ошибка при удалении лайка:', xhr.responseText);
             });
     });
+
+    $('#edit-photo-button').click(function() {
+        // Показываем форму редактирования
+        $('#edit-photo-form').toggle();
+    });
+
+    // Обработчик для формы редактирования фотографии
+    $('#edit-photo-form').submit(function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+
+        $.ajax({
+            url: `/api/photos/${photoId}/`,
+            method: 'PATCH',
+            data: formData,
+            processData: false,
+            contentType: false,
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            success: function(response) {
+                alert('Фотография успешно обновлена и отправлена на модерацию.');
+                loadPhotoDetails(); // Обновляем информацию о фото
+                $('#edit-photo-form').hide(); // Скрываем форму после успешного обновления
+            },
+            error: function(xhr) {
+                console.error('Ошибка при обновлении фотографии:', xhr.responseText);
+                alert('Ошибка при обновлении фотографии: ' + xhr.responseText);
+            }
+        });
+    });
+
 
     // Initialization
     loadPhotoDetails();
