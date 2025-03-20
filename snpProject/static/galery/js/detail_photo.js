@@ -168,10 +168,11 @@ $(document).ready(function() {
                 $('#photo-author-avatar').attr('src', photo.author.avatar || '');
                 $('#photo-description').text(photo.description);
                 $('#votes-count').text(photo.votes_count || 0);
-
+    
                 window.canEdit = photo.can_edit;
-
+    
                 if (window.canEdit) {
+                    // Условие для отображения кнопок
                     if (photo.moderation === '1' && photo.deleted_at) {
                         deletePhotoButton.hide();
                         restorePhotoButton.show();
@@ -183,18 +184,6 @@ $(document).ready(function() {
                 } else {
                     photoActions.hide();
                 }
-
-                timerDiv.empty();
-
-                loadInitialComments();
-
-                if (photo.has_liked) {
-                    $('#like-button').hide();
-                    $('#unlike-button').show().data('voteId', photo.votes[0] ? photo.votes[0] : null);
-                } else {
-                    $('#like-button').show();
-                    $('#unlike-button').hide();
-                }
             },
             error: function(xhr) {
                 console.error('Ошибка при загрузке фотографии:', xhr.responseText);
@@ -202,7 +191,8 @@ $(document).ready(function() {
             }
         });
     }
-
+    
+    
     $('#delete-photo-button').click(function() {
         $.ajax({
             url: `/api/photos/${photoId}/`,

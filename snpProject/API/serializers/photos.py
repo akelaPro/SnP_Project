@@ -18,7 +18,7 @@ class PhotoSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'title', 'description', 'author', 'image', 
             'published_at', 'status_display', 'deleted_at', 'comments',
-            'votes', 'has_liked', 'can_edit', 'votes_count', 'comments_count'
+            'votes', 'has_liked', 'can_edit', 'votes_count','delete_task_id', 'comments_count'
         ]
         read_only_fields = ['published_at', 'author', 'old_image']
         

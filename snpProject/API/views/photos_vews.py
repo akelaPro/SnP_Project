@@ -9,13 +9,12 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from django.utils import timezone
 from django.db.models import Count, Q
-from rest_framework.permissions import IsAuthenticated
 from API.serializers import *
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import action
 import logging
 from rest_framework.filters import SearchFilter, OrderingFilter
-from drf_spectacular.utils import extend_schema, OpenApiParameter
+from drf_spectacular.utils import extend_schema
 from rest_framework.exceptions import PermissionDenied
 
 
@@ -57,6 +56,9 @@ class PhotoViewSet(BaseViewSet):
             queryset = Photo.objects.filter(
                 Q(moderation='3') | Q(moderation='1', author=self.request.user)
             )
+        # Если включен параметр include_deleted, добавьте удаленные фотографии
+            if self.request.query_params.get('include_deleted') == 'true':
+                queryset = queryset | Photo.objects.filter(author=self.request.user, moderation='1')
         else:
             queryset = Photo.objects.filter(moderation='3')
 
@@ -67,20 +69,24 @@ class PhotoViewSet(BaseViewSet):
 
         return queryset
 
-    def perform_destroy(self, instance):
-        """
-        Отмечает фотографию как "удаленную" и запускает Celery task для фактического удаления через 30 секунд.
-        """
-        if instance.author != self.request.user:
-            raise PermissionDenied("У вас нет прав на удаление этой фотографии.")
 
-        instance.moderation = '1'  # Пометка на удаление
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        
+        if instance.author != request.user:
+            raise PermissionDenied("Нет прав на удаление")
+        
+        # Помечаем на удаление
+        instance.moderation = '1'
         instance.deleted_at = timezone.now()
         instance.save()
+        
+        # Сохраняем ID задачи для возможной отмены
+        task = delete_photo.apply_async(args=(instance.id,), countdown=30)
+        instance.delete_task_id = task.id
+        instance.save()
 
-        delete_photo.apply_async(args=(instance.id,), countdown=30)
-
-        self.notify_user(self.request.user, f"Фотография '{instance.title}' помечена на удаление.", 'photo_deleted')
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @extend_schema(
         description="Restore a deleted photo.",
@@ -88,32 +94,38 @@ class PhotoViewSet(BaseViewSet):
     )
     @action(detail=True, methods=['post'])
     def restore_photo(self, request, pk=None):
-        """
-        Восстанавливает фотографию, если она еще не была физически удалена.
-        """
-        logger.info(f"restore_photo called with pk={pk}, user={request.user}")
         try:
+            print(f"Начало восстановления фото {pk}")  # Лог
             photo = self.get_object()
+            print(f"Фото {pk} получено")  # Лог
 
             if photo.author != request.user:
-                logger.warning("Permission denied.")
-                return Response({'detail': 'У вас нет прав на восстановление этой фотографии.'}, status=status.HTTP_403_FORBIDDEN)
+                print(f"Нет прав на восстановление фото {pk}")  # Лог
+                return Response({"detail": "Нет прав"}, status=403)
 
-            if photo.moderation != '1' or photo.deleted_at is None:
-                logger.warning(f"Photo not marked for deletion. moderation={photo.moderation}, deleted_at={photo.deleted_at}")
-                return Response({'detail': 'Фотография не помечена на удаление.'}, status=status.HTTP_400_BAD_REQUEST)
+            if photo.moderation != '1':
+                print(f"Фото {pk} не помечено на удаление")  # Лог
+                return Response({"detail": "Фото не помечено на удаление"}, status=400)
 
-            if timezone.now() > photo.deleted_at + timedelta(seconds=60):
-                logger.warning("Restore time expired.")
-                return Response({'detail': 'Время для восстановления фотографии истекло.'}, status=status.HTTP_400_BAD_REQUEST)
+        # Отменяем задачу удаления
+            from celery.result import AsyncResult
+            if photo.delete_task_id:
+                print(f"Попытка отмены задачи {photo.delete_task_id} для фото {pk}")  # Лог
+                AsyncResult(photo.delete_task_id).revoke()
+                print(f"Задача {photo.delete_task_id} отменена для фото {pk}")  # Лог
 
-            photo.moderation = '2'
+        # Восстанавливаем фото
+            print(f"Восстановление фото {pk}")  # Лог
+            photo.moderation = '3'
             photo.deleted_at = None
+            photo.delete_task_id = None
             photo.save()
-            serializer = self.get_serializer(photo)
-            logger.info("Photo restored successfully.")
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            print(f"Фото {pk} сохранено")  # Лог
+
+            print(f"Отправка ответа для фото {pk}")  # Лог
+            serializer = PhotoSerializer(photo, context={'request': request})
+            return Response(serializer.data)
 
         except Exception as e:
-            logger.exception(f"An error occurred: {e}")
-            return Response({'detail': 'Произошла ошибка при восстановлении фотографии.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            logger.exception(f"Ошибка при восстановлении фото {pk}: {e}")  # Лог с исключением
+            return Response({"detail": str(e)}, status=500)
