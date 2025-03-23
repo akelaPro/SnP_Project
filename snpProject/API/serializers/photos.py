@@ -1,9 +1,11 @@
 from rest_framework import serializers
 from django.core.files.images import get_image_dimensions
 from PIL import Image
-
+import logging
 from API.serializers.auth import BaseUserSerializer
 from galery.models.photo.models import Photo
+
+logger = logging.getLogger('api')
 
 class PhotoSerializer(serializers.ModelSerializer):
     author = BaseUserSerializer(read_only=True)
@@ -51,17 +53,13 @@ class PhotoSerializer(serializers.ModelSerializer):
 
     def validate_image(self, value):
         try:
-            img = Image.open(value)
-            img.verify()  # Проверяем целостность файла
-            img.close()   # Закрываем файл после проверки
+        # Проверка изображения
+            if value.size > 10 * 1024 * 1024:  # 10 MB
+                raise serializers.ValidationError("Размер файла не должен превышать 10 МБ.")
+            return value
         except Exception as e:
-            raise serializers.ValidationError("Загрузите правильное изображение. Файл поврежден или не является изображением.")
-
-        max_size = 10 * 1024 * 1024  # 10 MB
-        if value.size > max_size:
-            raise serializers.ValidationError(f"Размер файла не должен превышать {max_size / (1024 * 1024)} MB.")
-
-        return value
+            logger.error(f"Ошибка при валидации изображения: {e}", exc_info=True)
+        raise serializers.ValidationError("Некорректный файл изображения.")
 
     def update(self, instance, validated_data):
         if 'image' in validated_data:
@@ -69,6 +67,7 @@ class PhotoSerializer(serializers.ModelSerializer):
             instance.old_image = instance.image
             instance.image = validated_data['image']
             instance.moderation = '2'  # Отправляем на модерацию
+
         instance.title = validated_data.get('title', instance.title)
         instance.description = validated_data.get('description', instance.description)
         instance.save()

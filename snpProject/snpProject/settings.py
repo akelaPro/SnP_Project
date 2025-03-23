@@ -210,3 +210,30 @@ SPECTACULAR_SETTINGS = {
     'VERSION': '1.0.0',  # Replace with your API version
     'SERVE_INCLUDE_SCHEMA': False, # disables schema view in production
 }
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'file': {
+            'level': 'DEBUG',  # Уровень логирования
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs/drf.log'),  # Путь к файлу логов
+        },
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',  # Логирование в консоль
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file', 'console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'api': {  # Логгер для вашего приложения API
+            'handlers': ['file', 'console'],
+            'level': 'DEBUG',
+        },
+    },
+}

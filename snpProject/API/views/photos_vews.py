@@ -19,7 +19,7 @@ from rest_framework.exceptions import PermissionDenied
 
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("api")
 
 class BaseViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
@@ -51,9 +51,9 @@ class PhotoViewSet(BaseViewSet):
     ordering = ['-published_at']
 
     def get_queryset(self):
-        queryset = Photo.objects.filter(moderation='3')  # Только одобренные фотографии
+        queryset = Photo.objects.filter(moderation='3')  #
 
-    # Аннотации для подсчета лайков и комментариев
+  
         queryset = queryset.annotate(
         votes_count=Count('votes', distinct=True),
         comments_count=Count('comments', distinct=True)
@@ -70,12 +70,12 @@ class PhotoViewSet(BaseViewSet):
         if instance.author != request.user:
             raise PermissionDenied("Нет прав на удаление")
         
-        # Помечаем на удаление
+
         instance.moderation = '1'
         instance.deleted_at = timezone.now()
         instance.save()
         
-        # Сохраняем ID задачи для возможной отмены
+
         task = delete_photo.apply_async(args=(instance.id,), countdown=30)
         instance.delete_task_id = task.id
         instance.save()
@@ -89,64 +89,50 @@ class PhotoViewSet(BaseViewSet):
     @action(detail=True, methods=['post'])
     def restore_photo(self, request, pk=None):
         try:
-            print(f"Начало восстановления фото {pk}")  # Лог
+            print(f"Начало восстановления фото {pk}")  
             photo = self.get_object()
-            print(f"Фото {pk} получено")  # Лог
+            print(f"Фото {pk} получено")  
 
             if photo.author != request.user:
-                print(f"Нет прав на восстановление фото {pk}")  # Лог
+                print(f"Нет прав на восстановление фото {pk}")  
                 return Response({"detail": "Нет прав"}, status=403)
 
             if photo.moderation != '1':
-                print(f"Фото {pk} не помечено на удаление")  # Лог
+                print(f"Фото {pk} не помечено на удаление")  
                 return Response({"detail": "Фото не помечено на удаление"}, status=400)
 
-        # Отменяем задачу удаления
+    
             from celery.result import AsyncResult
             if photo.delete_task_id:
-                print(f"Попытка отмены задачи {photo.delete_task_id} для фото {pk}")  # Лог
+                print(f"Попытка отмены задачи {photo.delete_task_id} для фото {pk}") 
                 AsyncResult(photo.delete_task_id).revoke()
-                print(f"Задача {photo.delete_task_id} отменена для фото {pk}")  # Лог
+                print(f"Задача {photo.delete_task_id} отменена для фото {pk}")  
 
-        # Восстанавливаем фото
-            print(f"Восстановление фото {pk}")  # Лог
+            print(f"Восстановление фото {pk}")
             photo.moderation = '3'
             photo.deleted_at = None
             photo.delete_task_id = None
             photo.save()
-            print(f"Фото {pk} сохранено")  # Лог
+            print(f"Фото {pk} сохранено") 
 
-            print(f"Отправка ответа для фото {pk}")  # Лог
+            print(f"Отправка ответа для фото {pk}")  
             serializer = PhotoSerializer(photo, context={'request': request})
             return Response(serializer.data)
 
         except Exception as e:
-            logger.exception(f"Ошибка при восстановлении фото {pk}: {e}")  # Лог с исключением
+            logger.exception(f"Ошибка при восстановлении фото {pk}: {e}")  
             return Response({"detail": str(e)}, status=500)
         
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
-    
-    # Проверяем, что текущий пользователь является автором фотографии
         if instance.author != request.user:
             raise PermissionDenied("Вы не можете изменять эту фотографию.")
-    
+
         try:
-        # Проверяем, был ли изменён файл фотографии
-            if 'image' in request.FILES:
-                new_image = request.FILES['image']
-                print(f"Новое изображение: {new_image.name}, размер: {new_image.size}")  # Логируем информацию о файле
-                instance.old_image = instance.image  # Сохраняем старую версию фото
-                instance.image = new_image
-                instance.moderation = '2'  # Отправляем на модерацию
-                instance.save()
-        
-        # Обновляем остальные поля (название и описание)
             serializer = self.get_serializer(instance, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
-            self.perform_update(serializer)
-        
+            self.perform_update(serializer)  # Теперь вся логика обновления в serializer.update()
             return Response(serializer.data)
         except Exception as e:
-            logger.error(f"Ошибка при обновлении фотографии: {e}")  # Логируем ошибку
-            return Response({"detail": "Произошла ошибка при обновлении фотографии."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            logger.exception("Ошибка при обновлении фотографии")
+            return Response({"detail": f"Ошибка: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
