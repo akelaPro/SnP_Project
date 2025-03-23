@@ -131,18 +131,22 @@ class PhotoViewSet(BaseViewSet):
         if instance.author != request.user:
             raise PermissionDenied("Вы не можете изменять эту фотографию.")
     
-    # Проверяем, был ли изменён файл фотографии
-        if 'image' in request.FILES:
-            new_image = request.FILES['image']
-            instance.old_image = instance.image  # Сохраняем старую версию фото
-            instance.image = new_image
-            instance.moderation = '2'  # Отправляем на модерацию
-            instance.save()
-            print(f"Файл сохранен: {instance.image.path}")  # Логируем путь к файлу
-    
-    # Обновляем остальные поля (название и описание)
-        serializer = self.get_serializer(instance, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
-    
-        return Response(serializer.data)
+        try:
+        # Проверяем, был ли изменён файл фотографии
+            if 'image' in request.FILES:
+                new_image = request.FILES['image']
+                print(f"Новое изображение: {new_image.name}, размер: {new_image.size}")  # Логируем информацию о файле
+                instance.old_image = instance.image  # Сохраняем старую версию фото
+                instance.image = new_image
+                instance.moderation = '2'  # Отправляем на модерацию
+                instance.save()
+        
+        # Обновляем остальные поля (название и описание)
+            serializer = self.get_serializer(instance, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            self.perform_update(serializer)
+        
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error(f"Ошибка при обновлении фотографии: {e}")  # Логируем ошибку
+            return Response({"detail": "Произошла ошибка при обновлении фотографии."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

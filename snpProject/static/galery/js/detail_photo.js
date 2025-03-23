@@ -554,44 +554,26 @@ $(document).ready(function() {
     $('#edit-photo-form').submit(function(e) {
         e.preventDefault();
     
-        const fileInput = document.getElementById('image-upload');
-        if (!fileInput) {
-            console.error('Элемент input[type="file"] не найден!');
-            return;
-        }
-    
-        const file = fileInput.files[0];
-        if (file) {
-            const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
-            if (!validTypes.includes(file.type)) {
-                alert('Пожалуйста, загрузите файл в формате JPEG, PNG или GIF.');
-                return;
-            }
-    
-            const maxSize = 10 * 1024 * 1024; // 10 MB
-            if (file.size > maxSize) {
-                alert('Размер файла не должен превышать 10 MB.');
-                return;
-            }
-        }
-    
         const formData = new FormData(this);
-        formData.append('title', $('#edit-title').val());
-        formData.append('description', $('#edit-description').val());
+    
+        // Проверка содержимого FormData
+        for (let [key, value] of formData.entries()) {
+            console.log(key, value);  // Логируем ключи и значения
+        }
     
         $.ajax({
             url: `/api/photos/${photoId}/`,
             method: 'PATCH',
             data: formData,
-            processData: false,
-            contentType: false,
+            processData: false,  // Не обрабатывать данные
+            contentType: false,  // Не устанавливать Content-Type
             headers: {
                 'X-CSRFToken': '{{ csrf_token }}'
             },
             success: function(response) {
                 alert('Фотография успешно обновлена и отправлена на модерацию.');
-                loadPhotoDetails();
-                $('#edit-photo-form').hide();
+                loadPhotoDetails();  // Обновляем информацию о фото
+                $('#edit-photo-form').hide();  // Скрываем форму редактирования
             },
             error: function(xhr) {
                 console.error('Ошибка при обновлении фотографии:', xhr.responseText);
