@@ -1,17 +1,21 @@
 from rest_framework import serializers
-from galery.models import Photo, Comment, Vote, User
-from .auth import BaseUserSerializer
+from django.core.files.images import get_image_dimensions
+from PIL import Image
+
+from API.serializers.auth import BaseUserSerializer
+from galery.models.photo.models import Photo
 
 class PhotoSerializer(serializers.ModelSerializer):
     author = BaseUserSerializer(read_only=True)
     comments = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
     votes = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
-    image = serializers.ImageField(required=True)
+    image = serializers.ImageField(required=False)
     has_liked = serializers.SerializerMethodField()
     can_edit = serializers.SerializerMethodField()
     votes_count = serializers.IntegerField(read_only=True)
     comments_count = serializers.IntegerField(read_only=True)
     status_display = serializers.SerializerMethodField()
+    old_image = serializers.ImageField(read_only=True)
 
     class Meta:
         model = Photo
@@ -21,7 +25,7 @@ class PhotoSerializer(serializers.ModelSerializer):
             'votes', 'has_liked', 'can_edit', 'votes_count', 'old_image', 'delete_task_id', 'comments_count'
         ]
         read_only_fields = ['published_at', 'author', 'old_image']
-        
+
 
     def get_status_display(self, obj):
         return obj.get_moderation_display()
@@ -44,10 +48,28 @@ class PhotoSerializer(serializers.ModelSerializer):
         validated_data['author'] = request.user  # Set the author here
         return super().create(validated_data)
 
+
+    def validate_image(self, value):
+        try:
+            img = Image.open(value)
+            img.verify()  # Проверяем целостность файла
+            img.close()   # Закрываем файл после проверки
+        except Exception as e:
+            raise serializers.ValidationError("Загрузите правильное изображение. Файл поврежден или не является изображением.")
+
+        max_size = 10 * 1024 * 1024  # 10 MB
+        if value.size > max_size:
+            raise serializers.ValidationError(f"Размер файла не должен превышать {max_size / (1024 * 1024)} MB.")
+
+        return value
+
     def update(self, instance, validated_data):
+        if 'image' in validated_data:
+            # Сохраняем текущее изображение как старое
+            instance.old_image = instance.image
+            instance.image = validated_data['image']
+            instance.moderation = '2'  # Отправляем на модерацию
         instance.title = validated_data.get('title', instance.title)
         instance.description = validated_data.get('description', instance.description)
-        instance.moderation = validated_data.get('moderation', instance.moderation)
-        instance.deleted_at = validated_data.get('deleted_at', instance.deleted_at)
         instance.save()
         return instance

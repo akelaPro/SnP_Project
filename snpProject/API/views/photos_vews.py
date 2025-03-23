@@ -51,21 +51,15 @@ class PhotoViewSet(BaseViewSet):
     ordering = ['-published_at']
 
     def get_queryset(self):
-        queryset = super().get_queryset()
-        if self.request.user.is_authenticated:
-            queryset = Photo.objects.filter(
-                Q(moderation='3') | Q(moderation='1', author=self.request.user)
-            )
-        # Если включен параметр include_deleted, добавьте удаленные фотографии
-            if self.request.query_params.get('include_deleted') == 'true':
-                queryset = queryset | Photo.objects.filter(author=self.request.user, moderation='1')
-        else:
-            queryset = Photo.objects.filter(moderation='3')
+        queryset = Photo.objects.filter(moderation='3')  # Только одобренные фотографии
 
+    # Аннотации для подсчета лайков и комментариев
         queryset = queryset.annotate(
-            votes_count=Count('votes', distinct=True),
-            comments_count=Count('comments', distinct=True)
+        votes_count=Count('votes', distinct=True),
+        comments_count=Count('comments', distinct=True)
         )
+        if self.request.query_params.get('include_deleted') == 'true':
+            queryset = Photo.objects.all()
 
         return queryset
 
@@ -132,24 +126,23 @@ class PhotoViewSet(BaseViewSet):
         
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
-        
-        # Проверяем, был ли изменён файл фотографии
+    
+    # Проверяем, что текущий пользователь является автором фотографии
+        if instance.author != request.user:
+            raise PermissionDenied("Вы не можете изменять эту фотографию.")
+    
+    # Проверяем, был ли изменён файл фотографии
         if 'image' in request.FILES:
-            old_image = instance.image
-            instance.old_image = old_image  # Сохраняем старую версию фото
+            new_image = request.FILES['image']
+            instance.old_image = instance.image  # Сохраняем старую версию фото
+            instance.image = new_image
             instance.moderation = '2'  # Отправляем на модерацию
             instance.save()
-            
-            # Уведомляем пользователя о повторной модерации
-            self.notify_user(
-                instance.author,
-                f"Ваша фотография '{instance.title}' отправлена на повторную модерацию.",
-                'photo_re_moderation'
-            )
-        
-        # Обновляем остальные поля
+            print(f"Файл сохранен: {instance.image.path}")  # Логируем путь к файлу
+    
+    # Обновляем остальные поля (название и описание)
         serializer = self.get_serializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
-        
+    
         return Response(serializer.data)

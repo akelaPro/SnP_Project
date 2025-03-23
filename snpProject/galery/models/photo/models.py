@@ -1,15 +1,16 @@
 from django.db import models
-from django.urls import reverse
+from django.dispatch import receiver
+from django.db.models.signals import post_save
+import os
+
 from snpProject import settings
-from imagekit.models import ImageSpecField
-from imagekit.processors import ResizeToFill
 
 class Photo(models.Model):
     STATUS_CHOICES = (
         ('1', 'На удалении'),
         ('2', 'На модерации'),
         ('3', 'Одобрено'),
-        ('4', 'отклонено'),
+        ('4', 'Отклонено'),
     )
 
     title = models.CharField(max_length=255, verbose_name='Заголовок')
@@ -19,23 +20,8 @@ class Photo(models.Model):
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='photos', verbose_name='Автор', db_index=True)
     deleted_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата удаления', db_index=True)
     moderation = models.CharField(max_length=1, choices=STATUS_CHOICES, verbose_name="Статус", default='2', db_index=True)
-    old_image = models.ImageField(upload_to='photos/old/', blank=True, null=True, verbose_name='Старая фотография')
-    delete_task_id = models.CharField(
-        max_length=255, 
-        null=True, 
-        blank=True,
-        verbose_name="ID задачи удаления"
-    )
-  
-    image_thumbnail = ImageSpecField(
-        source='image',
-        processors=[ResizeToFill(300, 300)],
-        format='JPEG',
-        options={'quality': 60}
-    )
-
-    def get_absolute_url(self):
-        return reverse('photo_detail', kwargs={'pk': self.pk})
+    old_image = models.ImageField(upload_to='photos/old/%Y/%m/%d/', blank=True, null=True, verbose_name='Старая фотография')
+    delete_task_id = models.CharField(max_length=255, null=True, blank=True, verbose_name="ID задачи удаления")
 
     def __str__(self):
         return self.title
@@ -43,14 +29,22 @@ class Photo(models.Model):
     def get_moderation_display(self):
         return dict(self.STATUS_CHOICES).get(self.moderation, 'Неизвестный статус')
 
-    def restore(self):
-        self.moderation = '2'  
-        self.deleted_at = None
-        self.save()
-
-    #def get_moderation_display(self):
-        #return dict(self.STATUS_CHOICES).get(self.moderation, 'Неизвестно')
+    def delete_old_image(self):
+        """Удаляет старую фотографию из файловой системы."""
+        if self.old_image:
+            if os.path.isfile(self.old_image.path):
+                os.remove(self.old_image.path)
+            self.old_image = None
+            self.save()
 
     class Meta:
         verbose_name = 'Фотография'
         verbose_name_plural = 'Фотографии'
+
+@receiver(post_save, sender=Photo)
+def handle_photo_moderation(sender, instance, **kwargs):
+    """
+    Удаляет старое изображение после одобрения новой фотографии.
+    """
+    if instance.moderation == '3' and instance.old_image:
+        instance.delete_old_image()

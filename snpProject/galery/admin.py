@@ -16,9 +16,24 @@ from asgiref.sync import async_to_sync
 
 @admin.register(Photo)
 class PhotoAdmin(admin.ModelAdmin):
-    list_display = ('title', 'author', 'moderation', 'published_at')
-    actions = ('approve_photos', 'reject_photos') # <<<<===== вот это добавил
-    readonly_fields = ('old_image',)
+    list_display = ('title', 'author', 'moderation', 'published_at', 'display_image', 'display_old_image')  # Добавьте 'display_image' и 'display_old_image'
+    actions = ('approve_photos', 'reject_photos')
+    readonly_fields = ('old_image', 'display_image', 'display_old_image')  # Добавьте 'display_image' и 'display_old_image'
+
+    def display_image(self, obj):
+        if obj.image:
+            return format_html('<img src="{}" width="150" height="150" style="object-fit: cover;" />', obj.image.url)
+        return "Нет изображения"
+    display_image.short_description = 'Текущее изображение'  # Название колонки в админке
+
+    def display_old_image(self, obj):
+        if obj.old_image:
+            return format_html('<img src="{}" width="150" height="150" style="object-fit: cover;" />', obj.old_image.url)
+        return "Нет старого изображения"
+    display_old_image.short_description = 'Старое изображение'  # Название колонки в админке
+
+
+
     @admin.action(description='Approve photos') # <<<<===== вот это добавил
     def approve_photos(self, request, queryset):
         for photo in queryset:
