@@ -23,6 +23,7 @@ logger = logging.getLogger("api")
 
 class BaseViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
+        
         serializer.save(author=self.request.user)
 
     def notify_user(self, user, message, notification_type):
@@ -51,15 +52,17 @@ class PhotoViewSet(BaseViewSet):
     ordering = ['-published_at']
 
     def get_queryset(self):
-        queryset = Photo.objects.filter(moderation='3')  #
+        queryset = Photo.objects.all() #
 
+
+
+        if self.action != 'restore_photo':  # Для всех действий, кроме восстановления, фильтруем по moderation='3'
+            queryset = queryset.filter(moderation='3')
   
         queryset = queryset.annotate(
         votes_count=Count('votes', distinct=True),
         comments_count=Count('comments', distinct=True)
         )
-        if self.request.query_params.get('include_deleted') == 'true':
-            queryset = Photo.objects.all()
 
         return queryset
 
@@ -70,6 +73,11 @@ class PhotoViewSet(BaseViewSet):
         if instance.author != request.user:
             raise PermissionDenied("Нет прав на удаление")
         
+        self.notify_user(
+        user=instance.author,
+        message=f"Фотография '{instance.title}' помечена на удаление.",
+        notification_type='photo_deleted'
+    )
 
         instance.moderation = '1'
         instance.deleted_at = timezone.now()
@@ -113,6 +121,13 @@ class PhotoViewSet(BaseViewSet):
             photo.deleted_at = None
             photo.delete_task_id = None
             photo.save()
+
+            self.notify_user(
+            user=photo.author,
+            message=f"Фотография '{photo.title}' успешно восстановлена.",
+            notification_type='photo_restored'
+        )
+
             print(f"Фото {pk} сохранено") 
 
             print(f"Отправка ответа для фото {pk}")  
@@ -131,7 +146,12 @@ class PhotoViewSet(BaseViewSet):
         try:
             serializer = self.get_serializer(instance, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
-            self.perform_update(serializer)  # Теперь вся логика обновления в serializer.update()
+            self.perform_update(serializer)
+            self.notify_user(
+            user=instance.author,
+            message=f"Фотография '{instance.title}' успешно обновлена.",
+            notification_type='photo_updated'
+        )
             return Response(serializer.data)
         except Exception as e:
             logger.exception("Ошибка при обновлении фотографии")

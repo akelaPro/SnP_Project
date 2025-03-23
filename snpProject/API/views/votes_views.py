@@ -12,7 +12,6 @@ class VoteViewSet(BaseViewSet):
     serializer_class = VoteSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
 
-
     @extend_schema(
         description="Create a vote for a photo.",
         request=VoteSerializer,
@@ -30,22 +29,13 @@ class VoteViewSet(BaseViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-
-            vote = Vote.objects.create(author=request.user, photo_id=photo_id)
+            photo = Photo.objects.get(id=photo_id)  # Получаем объект фотографии
+            vote = Vote.objects.create(author=request.user, photo=photo)
             serializer = self.get_serializer(vote)
+
+            # Отправка уведомления автору фотографии
+            if photo.author != request.user:  # Не отправляем уведомление себе
+                message = f"Пользователь {request.user.username} поставил лайк вашей фотографии."
+                self.notify_user(photo.author, message, 'like')
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-
-    @extend_schema(
-        description="Delete a vote (unlike).",
-        responses={204: '', 403: {'description': 'Forbidden'}},
-    )
-    def destroy(self, request, *args, **kwargs):
-        
-        vote = self.get_object()
-        if vote.author != request.user:
-            return Response(
-                {'detail': 'Вы можете удалять только свои лайки.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        return super().destroy(request, *args, **kwargs)

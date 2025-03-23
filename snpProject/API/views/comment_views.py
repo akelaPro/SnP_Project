@@ -23,7 +23,17 @@ class CommentViewSet(BaseViewSet):
         return queryset
 
     def perform_create(self, serializer):
-        serializer.save(author=self.request.user)  # Убрал parent тут, чтобы обрабатывать в сериализаторе
+        comment = serializer.save(author=self.request.user)
+
+        # Отправка уведомления автору фотографии
+        if comment.photo.author != self.request.user:  # Не отправляем уведомление себе
+            message = f"Пользователь {self.request.user.username} оставил комментарий к вашей фотографии."
+            self.notify_user(comment.photo.author, message, 'comment')
+
+        # Отправка уведомления автору родительского комментария, если это ответ
+        if comment.parent and comment.parent.author != self.request.user:  # Не отправляем уведомление себе
+            message = f"Пользователь {self.request.user.username} ответил на ваш комментарий."
+            self.notify_user(comment.parent.author, message, 'reply')  # Убрал parent тут, чтобы обрабатывать в сериализаторе
 
     def perform_update(self, serializer):
         serializer.save(author=self.request.user)
