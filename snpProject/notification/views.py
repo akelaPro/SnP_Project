@@ -24,33 +24,3 @@ class NotificationView(View):
 
 
 
-class NotificationViewSet(viewsets.ModelViewSet):
-    queryset = Notification.objects.all()
-    serializer_class = NotificationSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        # Фильтруем уведомления по пользователю
-        return self.queryset.filter(user=self.request.user)
-
-    def create(self, request, *args, **kwargs):
-        message = request.data.get('message')
-        notification_type = 'mass_notification'
-        channel_layer = get_channel_layer()
-        
-       
-        users = get_user_model().objects.all()
-        for user in users:
-            notification = Notification.objects.create(user=user, message=message, notification_type=notification_type)
-            async_to_sync(channel_layer.group_send)(
-                f"user_{user.id}",
-                {
-                    'type': 'send_notification',
-                    'notification': {
-                        'message': notification.message,
-                        'notification_type': notification.notification_type,
-                        'created_at': notification.created_at.isoformat(),
-                    }
-                }
-            )
-        return Response({"status": "success", "message": "Уведомление отправлено всем пользователям."})

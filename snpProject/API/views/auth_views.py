@@ -17,13 +17,6 @@ class UserProfileAPIView(APIView):
         serializer = Serializer(user)
         return Response(serializer.data)
 
-class UserPhotosAPIView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        photos = Photo.objects.filter(author=request.user)
-        serializer = PhotoSerializer(photos, many=True, context={'request': request})  
-        return Response(serializer.data)
 
 
 class UpdateUserProfileAPIView(APIView):
