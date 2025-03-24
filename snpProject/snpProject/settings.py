@@ -227,12 +227,12 @@ LOGGING = {
     },
     'loggers': {
         'django': {
-            'handlers': ['file', 'console'],
+            'handlers': ['file'],
             'level': 'DEBUG',
             'propagate': True,
         },
         'api': {  # Логгер для вашего приложения API
-            'handlers': ['file', 'console'],
+            'handlers': ['file'],
             'level': 'DEBUG',
         },
     },
