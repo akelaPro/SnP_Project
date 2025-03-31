@@ -16,30 +16,44 @@ import logging
 from rest_framework.filters import SearchFilter, OrderingFilter
 from drf_spectacular.utils import extend_schema
 from rest_framework.exceptions import PermissionDenied
-
+from notification.task1 import send_notification_email
 
 
 logger = logging.getLogger("api")
 
 class BaseViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
-        
+
         serializer.save(author=self.request.user)
 
     def notify_user(self, user, message, notification_type):
-        notification = Notification.objects.create(user=user, message=message, notification_type=notification_type)
+    # Создаем уведомление в базе данных
+        notification = Notification.objects.create(
+            user=user, 
+            message=message, 
+            notification_type=notification_type
+        )
+    
+    # Отправляем уведомление через WebSocket
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
             f"user_{user.id}",
             {
                 'type': 'send_notification',
                 'notification': {
-                    'message': notification.message,
-                    'notification_type': notification.notification_type,
-                    'created_at': notification.created_at.isoformat(),
-                }
+                'id': notification.id,
+                'message': notification.message,
+                'notification_type': notification.notification_type,
+                'created_at': notification.created_at.isoformat(),
+                'is_read': notification.is_read
             }
-        )
+        }
+    )
+    
+    # Отправляем email уведомление
+        notification.send_email_notification()
+
+        
 
 @extend_schema(tags=["Photos"])
 class PhotoViewSet(BaseViewSet):

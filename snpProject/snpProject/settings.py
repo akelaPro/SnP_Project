@@ -237,3 +237,16 @@ LOGGING = {
         },
     },
 }
+EMAIL_ENABLED = config('EMAIL_ENABLED', default=True, cast=bool)
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+SITE_URL = config('SITE_URL', default='http://localhost:8000')
+
+EMAIL_HOST = "smtp.yandex.ru"
+EMAIL_PORT = 465
+EMAIL_HOST_USER = config('EMAIL')
+EMAIL_HOST_PASSWORD = config('EMAIL_PASSWORD')
+EMAIL_USE_SSL = True
+
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+SERVER_EMAIL = EMAIL_HOST_USER
+EMAIL_ADMIN = EMAIL_HOST_USER

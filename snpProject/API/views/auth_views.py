@@ -31,5 +31,3 @@ class UpdateUserProfileAPIView(APIView):
         return Response(serializer.errors, status=400)
     
 
-class CreateUser(CreateAPIView):
-    serializer_class = CreateSerializer
