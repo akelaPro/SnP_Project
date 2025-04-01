@@ -14,6 +14,7 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+from rest_framework_social_oauth2 import urls as social_urls
 from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
@@ -21,10 +22,10 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('API.urls', namespace='API')),
     path('galery/', include('galery.urls', namespace='galery')),  
-    #path('accounts/', include('django.contrib.auth.urls')),
     path('notifications/', include('notification.urls')),
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
-    # Optional UI:
     path('api/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/schema/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+    path('oauth2/', include('rest_framework_social_oauth2.urls')),
+
 ]

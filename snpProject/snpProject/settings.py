@@ -52,6 +52,9 @@ INSTALLED_APPS = [
     'API.apps.ApiConfig',
     'notification.apps.NotificationConfig',
     'drf_spectacular',
+    'oauth2_provider',
+    'social_django',
+    'rest_framework_social_oauth2',
     
 ]
 
@@ -75,6 +78,8 @@ TEMPLATES = [
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
+                'social_django.context_processors.backends',
+                'social_django.context_processors.login_redirect',
                 'django.template.context_processors.debug',
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
@@ -168,7 +173,7 @@ DEFAULT_USER_IMAGE = MEDIA_URL + 'avatars/default_avatr/default_avatar.png'
 
 DEFAULT_PHOTO_IMAGE = MEDIA_URL + 'images/default_image.jpg'
 
-LOGIN_URL = '/galery:login/'
+LOGIN_URL = '/galery/login/'
 LOGIN_REDIRECT_URL = 'galery:home'
 LOGOUT_REDIRECT_URL = 'galery:home'
 
@@ -189,6 +194,8 @@ REST_FRAMEWORK = {
 
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'API.authentication.CustomTokenAuthentication',
+        'oauth2_provider.contrib.rest_framework.OAuth2Authentication',  # django-oauth-toolkit >= 1.0.0
+        'rest_framework_social_oauth2.authentication.SocialAuthentication',
     ],
     
 
@@ -201,7 +208,9 @@ REST_FRAMEWORK = {
 
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
-    'API.authentication.EmailAuthBackend',
+    'rest_framework_social_oauth2.backends.DjangoOAuth2',
+    'social_core.backends.vk.VKOAuth2',
+
 ]
 
 SPECTACULAR_SETTINGS = {
@@ -250,3 +259,14 @@ EMAIL_USE_SSL = True
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 SERVER_EMAIL = EMAIL_HOST_USER
 EMAIL_ADMIN = EMAIL_HOST_USER
+
+
+SOCIAL_AUTH_VK_OAUTH2_KEY = '53366461'
+SOCIAL_AUTH_VK_OAUTH2_SECRET = '0u3ZVG77wUeb3IcD25Es'
+
+
+TEMPLATE_CONTEXT_PROCESSORS = (
+   
+    'social_django.context_processors.backends',
+    'social_django.context_processors.login_redirect',
+)

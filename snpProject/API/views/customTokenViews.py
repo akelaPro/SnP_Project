@@ -10,7 +10,9 @@ from API.utils import hash_token
 import secrets
 from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import extend_schema
+import logging
 
+logger = logging.getLogger(__name__)
 
 
 @extend_schema(
@@ -19,16 +21,25 @@ from drf_spectacular.utils import extend_schema
     request=LoginSerializer,
     responses={200: LoginSerializer, 400: 'Bad Request'},
 )
+
+
+
 class LoginView(APIView):
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        username = serializer.validated_data['username']
+        password = serializer.validated_data['password']
+
+        logger.debug(f"Attempting to authenticate user: {username}")  # Log username
+
         user = authenticate(
-            username=serializer.validated_data['username'],
-            password=serializer.validated_data['password']
+            username=username,
+            password=password
         )
         if not user:
+            logger.warning(f"Authentication failed for user: {username}")  # Log failure
             raise exceptions.AuthenticationFailed('Invalid credentials.')
 
         # Генерация токенов

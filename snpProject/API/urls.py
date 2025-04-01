@@ -4,6 +4,8 @@ from django.urls import path, include, re_path
 from rest_framework import routers
 from API.views import PhotoViewSet, CommentViewSet, VoteViewSet
 from API.views import *
+from rest_framework_social_oauth2 import urls as social_urls
+
 
 router = routers.DefaultRouter()
 router.register(r'api/photos', PhotoViewSet, basename='photo')
