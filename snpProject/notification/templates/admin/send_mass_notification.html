@@ -1,11 +1,15 @@
+<!-- templates/admin/send_mass_notification.html -->
 {% extends "admin/base_site.html" %}
+{% load i18n %}
 
 {% block content %}
-<h1>Отправка массового уведомления</h1>
-<form method="post">{% csrf_token %}
-    {{ form.message.label }}<br>
-    {{ form.message }}<br>
-    {{ form.send_to_all }} {{ form.send_to_all.label }}<br>
-    <input type="submit" value="Отправить уведомление">
-</form>
+<div class="content">
+    <h1>Отправить массовое уведомление</h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="button">Отправить</button>
+        <a href="{% url 'admin:notification_notification_changelist' %}" class="button">Отмена</a>
+    </form>
+</div>
 {% endblock %}

@@ -4,8 +4,8 @@ from galery.models.photo.models import Photo
 
 
 class Vote(models.Model):
-    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='votes', verbose_name='Автор')
-    photo = models.ForeignKey(Photo, on_delete=models.CASCADE, related_name='votes', verbose_name='Фотография')
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='votes', verbose_name='Автор', db_index=True) # добавил db_index
+    photo = models.ForeignKey(Photo, on_delete=models.CASCADE, related_name='votes', verbose_name='Фотография', db_index=True) # добавил db_index
 
 
     class Meta:
@@ -18,3 +18,4 @@ class Vote(models.Model):
     class Meta:
         verbose_name = 'Лайк'
         verbose_name_plural = 'Лайки'
+        unique_together = ('author', 'photo')

@@ -1,54 +1,59 @@
+# notification/admin.py
 from django.contrib import admin
-from django.contrib import admin
+from django.shortcuts import render, redirect
+from django.urls import path
+from .models import Notification
+from .forms import MassNotificationForm
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
-from .models import Notification  
-from django.utils import timezone
-from .forms import MassNotificationForm  
 
+@admin.register(Notification)
 class NotificationAdmin(admin.ModelAdmin):
-    actions = ['send_mass_notification']
+    list_display = ('user', 'message', 'notification_type', 'created_at', 'is_read')
+    list_filter = ('notification_type', 'is_read')
+    search_fields = ('user__username', 'message')
 
-    def send_mass_notification(self, request, queryset):
-        print('abrakadabra')
-        form = MassNotificationForm(request.POST or None)
-        if request.method == 'POST' and form.is_valid():
-            message = form.cleaned_data['message']
-            send_to_all = form.cleaned_data['send_to_all']
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path('send-mass-notification/', self.admin_site.admin_view(self.send_mass_notification),
+        )]
+        return custom_urls + urls
 
-            channel_layer = get_channel_layer()
+    def send_mass_notification(self, request):
+        if request.method == 'POST':
+            form = MassNotificationForm(request.POST)
+            if form.is_valid():
+                users = form.cleaned_data['users']
+                message = form.cleaned_data['message']
+                notification_type = 'mass_notification'
+                channel_layer = get_channel_layer()
 
-            if send_to_all:
-
-                async_to_sync(channel_layer.group_send)(
-                    'all_users',
-                    {
-                        'type': 'mass_notification',
-                        'notification': {
-                            'message': message,
-                            'created_at': timezone.now().isoformat(),
-                        }
-                    }
-                )
-                self.message_user(request, "Массовое уведомление успешно отправлено всем пользователям.")
-            else:
-               
-                for user in queryset:
-                    group_name = f"user_{user.id}"
+                for user in users:
+                    notification = Notification.objects.create(
+                        user=user,
+                        message=message,
+                        notification_type=notification_type
+                    )
                     async_to_sync(channel_layer.group_send)(
-                        group_name,
+                        f"user_{user.id}",
                         {
-                            'type': 'mass_notification',
+                            'type': 'send_notification',
                             'notification': {
-                                'message': message,
-                                'created_at': timezone.now().isoformat(),
+                                'message': notification.message,
+                                'notification_type': notification.notification_type,
+                                'created_at': notification.created_at.isoformat(),
                             }
                         }
                     )
-                self.message_user(request, "Уведомление успешно отправлено выбранным пользователям.")
+                self.message_user(request, "Уведомления успешно отправлены.")
+                return redirect('admin:notification_notification_changelist')
+        else:
+            form = MassNotificationForm()
 
-        return self.change_view(request, self.get_object(request), form=form)
-
-    send_mass_notification.short_description = "Отправить массовое уведомление"
-
-admin.site.register(Notification, NotificationAdmin)
+        context = {
+            'form': form,
+            'opts': self.model._meta,
+            'title': 'Отправить массовое уведомление',
+        }
+        return render(request, 'admin/send_mass_notification.html', context)

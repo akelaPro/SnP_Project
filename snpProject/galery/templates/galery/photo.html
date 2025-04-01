@@ -1,196 +1,67 @@
 {% extends 'base.html' %}
 
+{% load static %} 
+
 {% block content %}
-<title>{{ photo.title }}</title>
-
 <div class="container mt-4">
-    <h1>{{ photo.title }}</h1>
+    <h1 id="photo-title"></h1>
+    <img id="photo-image" class="img-fluid" style="max-height: 400px; object-fit: cover;">
+    <p id="photo-description"></p>
+    <p>Автор: <span id="photo-author"></span></p>
+    <img id="photo-author-avatar" class="rounded-circle" style="width: 50px; height: 50px;">
 
-    {% if photo.image %}
-        <img src="{{ photo.image.url }}" alt="{{ photo.title }}" class="img-fluid" style="max-height: 400px; object-fit: cover;">
-    {% else %}
-        <p>Изображение недоступно.</p>
-    {% endif %}
+    <!-- Форма для редактирования фотографии -->
     
-    <p>{{ photo.description }}</p>
-    <p>Автор: {{ photo.author.username }}</p>
-    
-    {% if photo.author.avatar %}
-        <img src="{{ photo.author.avatar.url }}" alt="{{ photo.author.username }}" class="rounded-circle" style="width: 50px; height: 50px;">
-    {% else %}
-        <img src="{{ default_image }}" alt="Default Avatar" class="rounded-circle" style="width: 50px; height: 50px;">
-    {% endif %}
+
+    <div id="photo-actions" style="display: none;">
+    <button id="delete-photo-button" class="btn btn-danger">Удалить</button>
+    <button id="restore-photo-button" class="btn btn-success" style="display: none;">Восстановить</button>
+    <button id="edit-photo-button" class="btn btn-warning">Редактировать</button>
+</div>
+
+<!-- Форма для редактирования фотографии -->
+<form id="edit-photo-form" style="display: none;" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="form-group">
+        <label for="edit-title">Название:</label>
+        <input type="text" id="edit-title" name="title" class="form-control">
+    </div>
+    <div class="form-group">
+        <label for="edit-description">Описание:</label>
+        <textarea id="edit-description" name="description" class="form-control"></textarea>
+    </div>
+    <div class="form-group">
+        <label for="image-upload">Фотография:</label>
+        <input type="file" id="image-upload" name="image" class="form-control-file">        
+    </div>
+    <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+</form>
 
     <h3>Комментарии:</h3>
     <ul class="list-unstyled" id="comments-list">
-        {% for comment in comments %}
-            <li class="mb-2" data-comment-id="{{ comment.id }}">
-                <strong>{{ comment.author.username }}:</strong> {{ comment.text }}
-            </li>
-        {% empty %}
-            <li>Комментариев пока нет.</li>
-        {% endfor %}
     </ul>
 
-    {% if user.is_authenticated %}
-        <form id="comment-form" class="mb-4">
+    <button id="show-all-comments-button" style="display:none;" class="btn btn-secondary">Показать все комментарии</button>
+    <button id="hide-all-comments-button" style="display:none;" class="btn btn-secondary">Скрыть все комментарии</button>
+
+    <div id="comment-section">
+        <form id="comment-form" class="mb-4" style="display: none;">
             {% csrf_token %}
             <div class="form-group">
                 <textarea name="text" class="form-control" required placeholder="Добавьте комментарий..."></textarea>
             </div>
             <button type="submit" class="btn btn-primary">Добавить комментарий</button>
         </form>
-        
-        {% if photo.author == user %}
-            {% if photo.deleted_at %}
-                <button id="restore-photo-button" class="btn btn-warning" data-photo-id="{{ photo.pk }}">Восстановить фотографию</button>
-            {% else %}
-                <button id="delete-photo-button" class="btn btn-danger" data-photo-id="{{ photo.pk }}">Удалить фотографию</button>
-            {% endif %}
-        {% endif %}
-    {% else %}
-        <p>Чтобы добавить комментарий, вам нужно <a href="{% url 'login' %}">войти</a>.</p>
-    {% endif %}
-    
-    <h3 id="likes-count">Лайки: {{ photo.votes.count }}</h3>
+        <p id="login-prompt-comment">Чтобы оставить комментарий, пожалуйста, <a href="{% url 'galery:login_template' %}">войдите</a> или <a href="{% url 'galery:registration_template' %}">зарегистрируйтесь</a>.</p>
+    </div>
 
-    {% if user.is_authenticated %}
-        {% if has_liked %}
-            <button class="remove-like-button btn btn-danger" data-photo-id="{{ photo.pk }}">Убрать лайк</button>
-        {% else %}
-            <button class="like-button btn btn-success" data-photo-id="{{ photo.pk }}">Лайк</button>
-        {% endif %}
-    {% else %}
-        <p>Чтобы поставить лайк, вам нужно <a href="{% url 'login' %}">войти</a>.</p>
-    {% endif %}
+    <h3>Лайки: <span id="votes-count">0</span></h3>
+    <div id="like-section">
+        <button id="like-button" class="btn btn-success" style="display: none;">Поставить лайк</button>
+        <button id="unlike-button" class="btn btn-danger" style="display:none;">Убрать лайк</button>
+        <p id="login-prompt-like">Чтобы поставить лайк, пожалуйста, <a href="{% url 'galery:login_template' %}">войдите</a> или <a href="{% url 'galery:registration_template' %}">зарегистрируйтесь</a>.</p>
+    </div>
 </div>
 
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script>
-    $(document).ready(function() {
-        $.ajaxSetup({
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}' 
-            }
-        });
-
-        $('#comment-form').submit(function(event) {
-            event.preventDefault(); 
-
-            $.ajax({
-                url: '{% url "galery:add_comment" photo.id %}', 
-                type: 'POST',
-                data: $(this).serialize(),
-                success: function(response) {
-                    if (response.success) {
-                        $('#comments-list').append('<li class="mb-2"><strong>' + response.comment.author + ':</strong> ' + response.comment.text + '</li>');
-                        $('#comment-form textarea').val(''); 
-                    } else {
-                        alert(response.error); 
-                    }
-                },
-                error: function(xhr, status, error) {
-                    alert('Произошла ошибка: ' + error);
-                }
-            });
-        });
-
-        $('#delete-photo-button').click(function(event) {
-            event.preventDefault(); 
-
-            var button = $(this);
-            var photoId = button.data('photo-id'); 
-
-            if (confirm('Вы уверены, что хотите удалить эту фотографию?')) {
-                $.ajax({
-                    url: '/photo/' + photoId + '/delete/', 
-                    type: 'POST', 
-                    success: function(response) {
-                        if (response.success) {
-                            alert('Фотография помечена на удаление.');
-                           
-                            button.replaceWith('<button id="restore-photo-button" class="btn btn-warning" data-photo-id="' + photoId + '">Восстановить фотографию</button>');
-                        } else {
-                            alert(response.error); 
-                        }
-                    },
-                    error: function(xhr, status, error) {
-                        alert('Произошла ошибка: ' + error);
-                    }
-                });
-            }
-        });
-
-        $(document).on('click', '#restore-photo-button', function(event) {
-            event.preventDefault();
-
-            var button = $(this);
-            var photoId = button.data('photo-id');
-
-            if (confirm('Вы уверены, что хотите восстановить эту фотографию?')) {
-                $.ajax({
-                    url: '/photo/' + photoId + '/restore/',
-                    type: 'POST',
-                    success: function(response) {
-                        if (response.success) {
-                            alert('Фотография восстановлена.');
-                            button.replaceWith('<button id="delete-photo-button" class="btn btn-danger" data-photo-id="' + photoId + '">Удалить фотографию</button>');
-                        } else {
-                            alert(response.error);
-                        }
-                    },
-                    error: function(xhr, status, error) {
-                        alert('Произошла ошибка: ' + error);
-                    }
-                });
-            }
-        });
-        
-
-        $(document).on('click', '.like-button', function(event) {
-            event.preventDefault(); 
-
-            var button = $(this);
-            var photoId = button.data('photo-id'); 
-
-            $.ajax({
-                url: '/photo/' + photoId + '/add_vote/', 
-                type: 'POST',
-                success: function(response) {
-                    if (response.success) {
-                        $('#likes-count').text('Лайки: ' + response.likes_count); 
-                        button.replaceWith('<button class="remove-like-button btn btn-danger" data-photo-id="' + photoId + '">Убрать лайк</button>'); 
-                    } else {
-                        alert(response.error); 
-                    }
-                },
-                error: function(xhr, status, error) {
-                    alert('Произошла ошибка: ' + error);
-                }
-            });
-        });
-
-        $(document).on('click', '.remove-like-button', function(event) {
-            event.preventDefault(); 
-            var button = $(this);
-            var photoId = button.data('photo-id'); 
-
-            $.ajax({
-                url: '/photo/' + photoId + '/remove_vote/', 
-                type: 'POST',
-                success: function(response) {
-                    if (response.success) {
-                        $('#likes-count').text('Лайки: ' + response.likes_count); 
-                        button.replaceWith('<button class="like-button btn btn-success" data-photo-id="' + photoId + '">Лайк</button>'); 
-                    } else {
-                        alert(response.error); 
-                    }
-                },
-                error: function(xhr, status, error) {
-                    alert('Произошла ошибка: ' + error);
-                }
-            });
-        });
-    });
-</script>
+<script src="{% static 'galery/js/detail_photo.js' %}"></script> 
 {% endblock %}

@@ -28,3 +28,4 @@ staticfiles/
 Thumbs.db
 .env
 .uploads/git
+.logs

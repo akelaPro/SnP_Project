@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2>Вход</h2>
+    <form id="loginForm">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="email" class="form-label">Email</label>
+            <input type="email" class="form-control" id="email" required>
+        </div>
+        <div class="mb-3">
+            <label for="password" class="form-label">Пароль</label>
+            <input type="password" class="form-control" id="password" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Войти</button>
+    </form>
+
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    $(document).ready(function() {
+        $('#loginForm').submit(function(e) {
+            e.preventDefault();
+
+            const email = $('#email').val();
+            const password = $('#password').val();
+
+            const data = JSON.stringify({
+                username: email,
+                password: password
+            });
+
+            $.ajax({
+                url: '/api/login/',
+                method: 'POST',
+                contentType: 'application/json',
+                dataType: 'json',
+                data,
+
+                headers: {
+                     'X-CSRFToken': '{{ csrf_token }}' 
+                },
+                success: function(data) {
+                    console.log("Токен после входа:", data.access); 
+                    console.log("Токен после входа:", data.refresh); 
+
+                    if (data.access && data.refresh) {  
+                        localStorage.setItem('accessToken', data.access);  
+                        localStorage.setItem('refreshToken', data.refresh); 
+                        window.location.href = '{% url "galery:home" %}';
+                    } else {
+                        alert('Не удалось получить токены.');
+                    }
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    alert('Ошибка при авторизации.');
+                }
+            });
+        });
+    });
+
+    $(document).ajaxSend(function(event, xhr, settings) {
+        const token = localStorage.getItem('accessToken'); 
+        if (token) {
+            xhr.setRequestHeader('Authorization', 'Bearer ' + token); // Отправляем как Bearer
+        }
+    });
+</script>
+
+{% endblock %}

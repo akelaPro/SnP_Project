@@ -1,0 +1,172 @@
+from datetime import timedelta
+from django.shortcuts import get_object_or_404
+from rest_framework import viewsets, status
+from rest_framework.response import Response
+from API.task import delete_photo
+from galery.models import Photo
+from notification.models import Notification
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+from django.utils import timezone
+from django.db.models import Count, Q
+from API.serializers import *
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.decorators import action
+import logging
+from rest_framework.filters import SearchFilter, OrderingFilter
+from drf_spectacular.utils import extend_schema
+from rest_framework.exceptions import PermissionDenied
+from notification.task1 import send_notification_email
+
+
+logger = logging.getLogger("api")
+
+class BaseViewSet(viewsets.ModelViewSet):
+    def perform_create(self, serializer):
+
+        serializer.save(author=self.request.user)
+
+    def notify_user(self, user, message, notification_type):
+    # Создаем уведомление в базе данных
+        notification = Notification.objects.create(
+            user=user, 
+            message=message, 
+            notification_type=notification_type
+        )
+    
+    # Отправляем уведомление через WebSocket
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"user_{user.id}",
+            {
+                'type': 'send_notification',
+                'notification': {
+                'id': notification.id,
+                'message': notification.message,
+                'notification_type': notification.notification_type,
+                'created_at': notification.created_at.isoformat(),
+                'is_read': notification.is_read
+            }
+        }
+    )
+    
+    # Отправляем email уведомление
+        notification.send_email_notification()
+
+        
+
+@extend_schema(tags=["Photos"])
+class PhotoViewSet(BaseViewSet):
+    queryset = Photo.objects.all()
+    serializer_class = PhotoSerializer
+    parser_classes = [MultiPartParser, FormParser]
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields = ['title', 'author__username', 'description']
+    ordering_fields = ['votes_count', 'published_at', 'comments_count']
+    ordering = ['-published_at']
+
+    def get_queryset(self):
+        queryset = Photo.objects.all() #
+
+
+
+        if self.action != 'restore_photo':  # Для всех действий, кроме восстановления, фильтруем по moderation='3'
+            queryset = queryset.filter(moderation='3')
+  
+        queryset = queryset.annotate(
+        votes_count=Count('votes', distinct=True),
+        comments_count=Count('comments', distinct=True)
+        )
+
+        return queryset
+
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        
+        if instance.author != request.user:
+            raise PermissionDenied("Нет прав на удаление")
+        
+        self.notify_user(
+        user=instance.author,
+        message=f"Фотография '{instance.title}' помечена на удаление.",
+        notification_type='photo_deleted'
+    )
+
+        instance.moderation = '1'
+        instance.deleted_at = timezone.now()
+        instance.save()
+        
+
+        task = delete_photo.apply_async(args=(instance.id,), countdown=30)
+        instance.delete_task_id = task.id
+        instance.save()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @extend_schema(
+        description="Restore a deleted photo.",
+        responses={200: PhotoSerializer, 400: {'description': 'Invalid request'}, 403: {'description': 'Permission denied'}},
+    )
+    @action(detail=True, methods=['post'])
+    def restore_photo(self, request, pk=None):
+        try:
+            print(f"Начало восстановления фото {pk}")  
+            photo = self.get_object()
+            print(f"Фото {pk} получено")  
+
+            if photo.author != request.user:
+                print(f"Нет прав на восстановление фото {pk}")  
+                return Response({"detail": "Нет прав"}, status=403)
+
+            if photo.moderation != '1':
+                print(f"Фото {pk} не помечено на удаление")  
+                return Response({"detail": "Фото не помечено на удаление"}, status=400)
+
+    
+            from celery.result import AsyncResult
+            if photo.delete_task_id:
+                print(f"Попытка отмены задачи {photo.delete_task_id} для фото {pk}") 
+                AsyncResult(photo.delete_task_id).revoke()
+                print(f"Задача {photo.delete_task_id} отменена для фото {pk}")  
+
+            print(f"Восстановление фото {pk}")
+            photo.moderation = '3'
+            photo.deleted_at = None
+            photo.delete_task_id = None
+            photo.save()
+
+            self.notify_user(
+            user=photo.author,
+            message=f"Фотография '{photo.title}' успешно восстановлена.",
+            notification_type='photo_restored'
+        )
+
+            print(f"Фото {pk} сохранено") 
+
+            print(f"Отправка ответа для фото {pk}")  
+            serializer = PhotoSerializer(photo, context={'request': request})
+            return Response(serializer.data)
+
+        except Exception as e:
+            logger.exception(f"Ошибка при восстановлении фото {pk}: {e}")  
+            return Response({"detail": str(e)}, status=500)
+        
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.author != request.user:
+            raise PermissionDenied("Вы не можете изменять эту фотографию.")
+
+        try:
+            serializer = self.get_serializer(instance, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            self.perform_update(serializer)
+            self.notify_user(
+            user=instance.author,
+            message=f"Фотография '{instance.title}' успешно обновлена.",
+            notification_type='photo_updated'
+        )
+            return Response(serializer.data)
+        except Exception as e:
+            logger.exception("Ошибка при обновлении фотографии")
+            return Response({"detail": f"Ошибка: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

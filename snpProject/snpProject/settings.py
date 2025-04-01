@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
+from datetime import timedelta
 import os
 from pathlib import Path
 from decouple import config
@@ -44,12 +45,13 @@ INSTALLED_APPS = [
     'django_extensions',
     'rest_framework',
     'djoser',
-    'rest_framework_simplejwt',
+    'rest_framework.authtoken',
     'galery.apps.GaleryConfig',
     'channels',
     'channels_redis',
-    'accounts.apps.AccountsConfig',
+    'API.apps.ApiConfig',
     'notification.apps.NotificationConfig',
+    'drf_spectacular',
     
 ]
 
@@ -156,7 +158,7 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 AUTH_USER_MODEL = 'galery.User'
-
+#'/home/admin/Рабочий стол/SnP_Project/snpProject/media/avatars/default_avatr/default_avatar.png'
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
@@ -166,7 +168,7 @@ DEFAULT_USER_IMAGE = MEDIA_URL + 'avatars/default_avatr/default_avatar.png'
 
 DEFAULT_PHOTO_IMAGE = MEDIA_URL + 'images/default_image.jpg'
 
-LOGIN_URL = '/accounts:login/'
+LOGIN_URL = '/galery:login/'
 LOGIN_REDIRECT_URL = 'galery:home'
 LOGOUT_REDIRECT_URL = 'galery:home'
 
@@ -174,27 +176,77 @@ LOGOUT_REDIRECT_URL = 'galery:home'
 ASGI_APPLICATION = 'snpProject.asgi.application'
 
 REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',
+    ],
+
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
     ],
+
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'API.authentication.CustomTokenAuthentication',
     ],
+    
+
 }
 
 
 
-DJOSER = {
-    'USER_CREATE_PASSWORD_RETYPE': True,
-    'TOKEN_MODEL': 'rest_framework_simplejwt.tokens.AccessToken',
-    'SERIALIZERS': {
-        'user_create': 'accounts.serializers.CreateSerializer',  # Исправлено
-        'user': 'accounts.serializers.Serializer',  # Исправлено
-    },
-}
+
 
 
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
-    'accounts.authentication.EmailAuthBackend',
+    'API.authentication.EmailAuthBackend',
 ]
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'snpProject',
+    'DESCRIPTION': 'Your project description',
+    'VERSION': '1.0.0',  # Replace with your API version
+    'SERVE_INCLUDE_SCHEMA': False, # disables schema view in production
+}
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'file': {
+            'level': 'DEBUG',  # Уровень логирования
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs/drf.log'),  # Путь к файлу логов
+        },
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',  # Логирование в консоль
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'api': {  # Логгер для вашего приложения API
+            'handlers': ['file'],
+            'level': 'DEBUG',
+        },
+    },
+}
+EMAIL_ENABLED = config('EMAIL_ENABLED', default=True, cast=bool)
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+SITE_URL = config('SITE_URL', default='http://localhost:8000')
+
+EMAIL_HOST = "smtp.yandex.ru"
+EMAIL_PORT = 465
+EMAIL_HOST_USER = config('EMAIL')
+EMAIL_HOST_PASSWORD = config('EMAIL_PASSWORD')
+EMAIL_USE_SSL = True
+
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+SERVER_EMAIL = EMAIL_HOST_USER
+EMAIL_ADMIN = EMAIL_HOST_USER

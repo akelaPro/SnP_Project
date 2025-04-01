@@ -1,0 +1,163 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Профиль</h5>
+                </div>
+                <div class="card-body" id="profile-info">
+                    <!-- Данные профиля будут загружены сюда -->
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status" id="profile-spinner">
+                            <span class="visually-hidden">Загрузка...</span>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <p><a href="{% url 'galery:create_photo' %}">Добавить фото</a></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <h2>Мои фотографии</h2>
+            <div class="mb-3 d-flex align-items-center">
+                <label for="status-filter" class="form-label me-2">Фильтр по статусу:</label>
+                <select class="form-select me-2" id="status-filter" style="width: auto;">
+                    <option value="">Все статусы</option>
+                    <option value="1">На удалении</option>
+                    <option value="2">На модерации</option>
+                    <option value="3">Одобрено</option>
+                    <option value="4">Отклонено</option>
+                </select>
+            </div>
+            <div class="row" id="photos">
+                <!-- Фотографии будут загружены сюда -->
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status" id="photos-spinner">
+                        <span class="visually-hidden">Загрузка...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    $(document).ready(function() {
+        const accessToken = localStorage.getItem('accessToken'); 
+        if (!accessToken) {
+            console.error('Токен доступа отсутствует');
+          
+            //  window.location.href = "{% url 'galery:login_template' %}";
+            return;
+        }
+
+        function loadPhotos(search = '', ordering = '') {
+            $('#photos-spinner').show(); 
+            let url = '{% url "API:user_photos" %}';
+            const params = [];
+
+            const moderation_status = $('#status-filter').val();
+
+            if (search) {
+                params.push('search=' + search);
+            }
+            if (ordering) {
+                params.push('ordering=' + ordering);
+            }
+            if (moderation_status) {
+                params.push('moderation_status=' + moderation_status);
+            }
+
+            if (params.length > 0) {
+                url += '?' + params.join('&');
+            }
+
+            $.ajax({
+                url: url,
+                method: 'GET',
+                headers: {
+                    'Authorization': 'Bearer ' + accessToken 
+                },
+                success: function(data) {
+                    $('#photos-spinner').hide(); 
+                    let photosHtml = '';
+                    if (data.length > 0) {
+                        data.forEach(photo => {
+                            photosHtml += `
+                                <div class="col-md-4 mb-4">
+                                    <div class="card">
+                                        <a href="/galery/photo/${photo.id}/">
+                                            <img src="${photo.image}" alt="${photo.title}" class="card-img-top" style="max-height: 200px; object-fit: cover;">
+                                        </a>
+                                        <div class="card-body">
+                                            <h5 class="card-title">${photo.title}</h5>
+                                            <p class="card-text">${photo.description}</p>
+                                            <p class="card-text">Статус: ${photo.status_display}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    } else {
+                        photosHtml = `<div class="col-12"><p>У вас нет загруженных фотографий.</p></div>`;
+                    }
+                    $('#photos').html(photosHtml);
+                },
+                error: function(xhr) {
+                    $('#photos-spinner').hide();
+                    console.error('Ошибка при загрузке фотографий:', xhr.responseText);
+
+                }
+            });
+        }
+
+        // Загрузка профиля
+        $.ajax({
+            url: '{% url "API:user_profile" %}',
+            method: 'GET',
+            headers: {
+                'Authorization': 'Bearer ' + accessToken 
+            },
+            beforeSend: function(){
+              $('#profile-spinner').show(); 
+            },
+            success: function(data) {
+                $('#profile-spinner').hide(); 
+                const avatarUrl = data.avatar;
+                $('#profile-info').html(`
+                    <img src="" alt="Avatar" class="img-fluid rounded-circle mb-3" style="width: 100px; height: 100px;">
+                    <p>Логин: ${data.username}</p>
+                    <p>Email: ${data.email}</p>
+                    <button id="edit-profile" class="btn btn-primary">Редактировать</button>
+                `);
+            },
+            error: function(xhr) {
+                $('#profile-spinner').hide(); 
+                console.error('Ошибка при загрузке профиля:', xhr.responseText);
+                
+            }
+        });
+
+
+        loadPhotos();
+
+        // Обработчики изменения сортировки и фильтрации
+        $('#status-filter').change(function() {
+            loadPhotos();
+        });
+        $('#sort-select').change(function() {
+            loadPhotos($('#search-input').val(), $(this).val()); 
+        });
+        $('#search-form').submit(function(e){
+            e.preventDefault();
+             loadPhotos($('#search-input').val(), $('#sort-select').val()); 
+        });
+    });
+</script>
+{% endblock %}

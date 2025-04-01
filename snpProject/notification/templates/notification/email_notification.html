@@ -1,0 +1,29 @@
+<!-- notification/templates/notification/email_notification.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Новое уведомление</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .content { margin: 20px 0; }
+        .footer { font-size: 0.8em; color: #777; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>У вас новое уведомление</h2>
+        </div>
+        <div class="content">
+            <p><strong>Тип:</strong> {{ notification.notification_type }}</p>
+            <p><strong>Сообщение:</strong> {{ notification.message }}</p>
+            <p><strong>Дата:</strong> {{ notification.created_at }}</p>
+        </div>
+        <div class="footer">
+            <p>Вы можете просмотреть это уведомление в <a href="{{ site_url }}/notifications/">личном кабинете</a>.</p>
+        </div>
+    </div>
+</body>
+</html>
