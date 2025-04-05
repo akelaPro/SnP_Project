@@ -4,6 +4,9 @@ from django.db.models.signals import post_save
 import os
 
 from snpProject import settings
+import logging
+
+logger = logging.getLogger(__name__)
 
 class Photo(models.Model):
     STATUS_CHOICES = (
@@ -40,6 +43,17 @@ class Photo(models.Model):
     class Meta:
         verbose_name = 'Фотография'
         verbose_name_plural = 'Фотографии'
+
+    def save(self, *args, **kwargs):
+        if self.pk:  # Если объект уже существует
+            old = Photo.objects.get(pk=self.pk)
+            if old.moderation != self.moderation or old.deleted_at != self.deleted_at:
+                logger.info(
+                    f"Изменение статуса фото {self.id}: "
+                    f"moderation {old.moderation}->{self.moderation}, "
+                    f"deleted_at {old.deleted_at}->{self.deleted_at}"
+                )
+        super().save(*args, **kwargs)    
 
 @receiver(post_save, sender=Photo)
 def handle_photo_moderation(sender, instance, **kwargs):

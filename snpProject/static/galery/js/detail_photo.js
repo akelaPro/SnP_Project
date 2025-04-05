@@ -157,61 +157,94 @@ $(document).ready(function() {
     // Photo Loading
     function loadPhotoDetails() {
         console.log("Loading photo details...");
-        $.ajax({
-            url: `/api/photos/${photoId}/?include_deleted=true`,
-            method: 'GET',
-            success: function(photo) {
-                console.log("Photo details loaded successfully.");
-                $('#photo-title').text(photo.title);
-                $('#photo-image').attr('src', photo.image || '');
-                $('#photo-author').text(photo.author.username);
-                $('#photo-author-avatar').attr('src', photo.author.avatar || '');
-                $('#photo-description').text(photo.description);
-                $('#votes-count').text(photo.votes_count || 0);
-
-                // Заполняем форму редактирования
-                $('#edit-title').val(photo.title);
-                $('#edit-description').val(photo.description);
-
-                window.canEdit = photo.can_edit;
-
-                if (window.canEdit) {
-                    // Условие для отображения кнопок
-                    if (photo.moderation === '1' && photo.deleted_at) {
-                        deletePhotoButton.hide();
-                        restorePhotoButton.show();
+        return new Promise((resolve, reject) => {
+            $.ajax({
+                url: `/api/photos/${photoId}/?include_deleted=true`,
+                method: 'GET',
+                success: function(photo) {
+                    console.log("Photo details loaded successfully.");
+                    $('#photo-title').text(photo.title);
+                    $('#photo-image').attr('src', photo.image || '');
+                    $('#photo-author').text(photo.author.username);
+                    $('#photo-author-avatar').attr('src', photo.author.avatar || '');
+                    $('#photo-description').text(photo.description);
+                    $('#votes-count').text(photo.votes.length || 0); // Используем votes.length
+    
+                    // Заполняем форму редактирования
+                    $('#edit-title').val(photo.title);
+                    $('#edit-description').val(photo.description);
+    
+                    window.canEdit = photo.can_edit;
+    
+                    if (window.canEdit) {
+                        // Условие для отображения кнопок
+                        if (photo.moderation === '1' && photo.deleted_at) {
+                            deletePhotoButton.hide();
+                            restorePhotoButton.show();
+                        } else {
+                            deletePhotoButton.show();
+                            restorePhotoButton.hide();
+                        }
+                        photoActions.show();
+                        $('#edit-photo-button').show(); // Показываем кнопку редактирования
                     } else {
-                        deletePhotoButton.show();
-                        restorePhotoButton.hide();
+                        photoActions.hide();
+                        $('#edit-photo-button').hide(); // Скрываем кнопку редактирования
                     }
-                    photoActions.show();
-                    $('#edit-photo-button').show(); // Показываем кнопку редактирования
-                } else {
+    
+                    // Обрабатываем информацию о лайке пользователя
+                    console.log("photo.has_liked:", photo.has_liked); // Добавлено логирование
+                    if (photo.has_liked === true) {
+                        $('#like-button').hide();
+                        // Находим voteId пользователя
+                        const userVoteId = photo.votes.find(voteId => true); // Берем первый элемент (id лайка)
+                        console.log("userVoteId:", userVoteId); // Добавлено логирование
+                        $('#unlike-button').show().data('voteId', userVoteId);
+                    } else {
+                        $('#like-button').show();
+                        $('#unlike-button').hide().data('voteId', null);
+                    }
+    
+                    resolve(photo);
+                },
+                error: function(xhr) {
+                    console.error('Ошибка при загрузке фотографии:', xhr.responseText);
                     photoActions.hide();
-                    $('#edit-photo-button').hide(); // Скрываем кнопку редактирования
+                    reject(xhr);
                 }
-            },
-            error: function(xhr) {
-                console.error('Ошибка при загрузке фотографии:', xhr.responseText);
-                photoActions.hide();
-            }
+            });
         });
     }
-    
+
     $('#delete-photo-button').click(function() {
+        if (!confirm("Вы уверены, что хотите удалить эту фотографию?")) return;
+    
         $.ajax({
             url: `/api/photos/${photoId}/`,
             method: 'DELETE',
             headers: {
-                'X-CSRFToken': '{{ csrf_token }}'
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
             },
-            success: function() {
-                deletePhotoButton.hide();
-                restorePhotoButton.show();
+            success: function(response) {
+                
+                
+                $('#delete-photo-button').hide();
+                $('#restore-photo-button').show();
+                
+                // Refresh after 35 seconds to ensure deletion is complete
+                setTimeout(() => {
+                    location.reload();
+                }, 35000);
             },
             error: function(xhr) {
-                console.error('Ошибка при удалении фотографии:', xhr.responseText);
-                alert('Ошибка при удалении фотографии.');
+                let errorMsg = 'Ошибка при удалении фотографии';
+                if (xhr.responseJSON) {
+                    errorMsg = xhr.responseJSON.detail || 
+                              (xhr.responseJSON.non_field_errors && xhr.responseJSON.non_field_errors.join(', ')) ||
+                              JSON.stringify(xhr.responseJSON);
+                }
+
             }
         });
     });
@@ -241,24 +274,30 @@ $(document).ready(function() {
     // Comments System
     function loadInitialComments() {
         console.log("Loading initial comments...");
-        $.get(`/api/comments/?photo=${photoId}`)
-            .done(comments => {
-                console.log("Initial comments loaded successfully.");
-                const commentsList = $('#comments-list');
-                commentsList.empty();
+        return new Promise((resolve, reject) => { // Added promise
+            $.get(`/api/comments/?photo=${photoId}`)
+                .done(comments => {
+                    console.log("Initial comments loaded successfully.");
+                    const commentsList = $('#comments-list');
+                    commentsList.empty();
 
-                const rootComments = comments.filter(comment => !comment.parent);
-                rootComments.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                    const rootComments = comments.filter(comment => !comment.parent);
+                    rootComments.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-                const initialRootComments = rootComments.slice(0, 2);
+                    const initialRootComments = rootComments.slice(0, 2);
 
-                initialRootComments.forEach(comment => {
-                    commentsList.append(buildCommentHTML(comment, comments));
+                    initialRootComments.forEach(comment => {
+                        commentsList.append(buildCommentHTML(comment, comments));
+                    });
+
+                    showAllCommentsButton.toggle(rootComments.length > 2);
+                    resolve(); // Resolve promise on success
+                })
+                .fail(xhr => {
+                    console.error('Ошибка при загрузке комментариев:', xhr.responseText);
+                    reject(xhr); // Reject promise on error
                 });
-
-                showAllCommentsButton.toggle(rootComments.length > 2);
-            })
-            .fail(xhr => console.error('Ошибка при загрузке комментариев:', xhr.responseText));
+        });
     }
 
     function loadAllComments() {
@@ -292,8 +331,8 @@ $(document).ready(function() {
                 <div style="font-size: smaller; color: #888;">
                     ${new Date(comment.created_at).toLocaleString()}
                     <button class="reply-button btn btn-sm btn-outline-secondary" data-comment-id="${comment.id}">Ответить</button>
-                    
-                    
+
+
                 </div>
         `;
 
@@ -343,7 +382,7 @@ $(document).ready(function() {
         const currentText = commentElement.find('div:first-child').text().split(': ').slice(1).join(': ');
 
         if ($(`#edit-form-${commentId}`).length) {
-            return;  // Если форма уже открыта, ничего не делаем
+            return; // Если форма уже открыта, ничего не делаем
         }
         showEditForm(commentId, currentText);
     });
@@ -357,7 +396,7 @@ $(document).ready(function() {
             url: `/api/comments/${commentId}/`,
             method: 'PATCH',
             contentType: 'application/json',
-            data: data,
+            data,
             headers: {
                 'X-CSRFToken': '{{ csrf_token }}'
             },
@@ -421,7 +460,7 @@ $(document).ready(function() {
             },
             success: function() {
                 loadInitialComments();
-                $(this).remove();  // Remove the form
+                $(this).remove(); // Remove the form
             },
             error: function(xhr) {
                 console.error('Ошибка при создании ответа:', xhr.responseText);
@@ -481,51 +520,66 @@ $(document).ready(function() {
     $('#comment-form').submit(function(e) {
         e.preventDefault();
         const text = $(this).find('textarea').val();
-        const data = JSON.stringify({ text, photo: photoId });
+        const data = JSON.stringify({
+            text: text,
+            photo: photoId,
+            // Добавляем parent_id если это ответ на комментарий
+            parent: $(this).data('parent-id') || null
+        });
+
         $.ajax({
             url: `/api/comments/`,
             type: 'POST',
             contentType: 'application/json',
             data,
             headers: {
-                'X-CSRFToken': '{{ csrf_token }}'
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Authorization': accessToken ? 'Bearer ' + accessToken : ''
             },
             success: () => {
-                loadInitialComments();
+                loadPhotoDetails(); // Обновляем данные фото (счетчик комментариев)
+                loadInitialComments(); // Обновляем список комментариев
                 $(this).find('textarea').val('');
+            },
+            error: function(xhr) {
+                console.error('Ошибка при создании комментария:', xhr.responseText);
+                alert('Ошибка при создании комментария: ' + xhr.responseText);
             }
         });
     });
 
     $('#like-button').click(function() {
         const data = JSON.stringify({ photo: photoId });
-
+    
         if (!accessToken) {
             console.error('Токен доступа отсутствует');
             window.location.href = "{% url 'galery:login_template' %}";
             return;
         }
-
+        console.log("accessToken перед запросом лайка:", accessToken);
+    
         $.ajax({
             url: `/api/votes/`,
             method: 'POST',
             data,
             contentType: 'application/json',
             headers: {
-                'X-CSRFToken': '{{ csrf_token }}'
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Authorization': accessToken ? 'Bearer ' + accessToken : ''
             },
             success: function(response) {
+                loadPhotoDetails();
                 const voteId = response.id;
-                $('#votes-count').text(parseInt($('#votes-count').text()) + 1);
                 $('#like-button').hide();
                 $('#unlike-button').show().data('voteId', voteId);
             },
             error: function(xhr) {
                 console.error('Ошибка при постановке лайка:', xhr.responseText);
+                alert('Ошибка при постановке лайка: ' + xhr.responseText);
             }
         });
     });
-
+    
     $('#unlike-button').click(function() {
         const voteId = $(this).data('voteId');
         $.ajax({
@@ -536,7 +590,7 @@ $(document).ready(function() {
                 },
             })
             .done(() => {
-                $('#votes-count').text(parseInt($('#votes-count').text()) - 1);
+                loadPhotoDetails()
                 $(this).hide();
                 $('#like-button').show();
             })
@@ -553,27 +607,27 @@ $(document).ready(function() {
     // Обработчик для формы редактирования фотографии
     $('#edit-photo-form').submit(function(e) {
         e.preventDefault();
-    
+
         const formData = new FormData(this);
-    
+
         // Проверка содержимого FormData
         for (let [key, value] of formData.entries()) {
-            console.log(key, value);  // Логируем ключи и значения
+            console.log(key, value); // Логируем ключи и значения
         }
-    
+
         $.ajax({
             url: `/api/photos/${photoId}/`,
             method: 'PATCH',
-            data: formData,
-            processData: false,  // Не обрабатывать данные
-            contentType: false,  // Не устанавливать Content-Type
+            formData,
+            processData: false, // Не обрабатывать данные
+            contentType: false, // Не устанавливать Content-Type
             headers: {
                 'X-CSRFToken': '{{ csrf_token }}'
             },
             success: function(response) {
                 alert('Фотография успешно обновлена и отправлена на модерацию.');
-                loadPhotoDetails();  // Обновляем информацию о фото
-                $('#edit-photo-form').hide();  // Скрываем форму редактирования
+                loadPhotoDetails(); // Обновляем информацию о фото
+                $('#edit-photo-form').hide(); // Скрываем форму редактирования
             },
             error: function(xhr) {
                 console.error('Ошибка при обновлении фотографии:', xhr.responseText);
@@ -581,12 +635,31 @@ $(document).ready(function() {
             }
         });
     });
-    
+
 
     // Initialization
-    loadPhotoDetails();
-    updateAuthUI();
-    if (accessToken) {
-        scheduleTokenRefresh(120);
-    }
+    Promise.all([
+            new Promise(resolve => {
+                // Дожидаемся загрузки токена из localStorage
+                const checkTokenInterval = setInterval(() => {
+                    accessToken = localStorage.getItem('accessToken');
+                    if (accessToken) {
+                        console.log("Access token loaded from localStorage:", accessToken);
+                        clearInterval(checkTokenInterval);
+                        updateAuthUI();
+                        if (accessToken) {
+                            scheduleTokenRefresh(120);
+                        }
+                        resolve();
+                    }
+                }, 50); // Проверяем каждые 50 мс
+            }),
+            loadPhotoDetails()
+        ])
+        .then(() => {
+            loadInitialComments();
+        })
+        .catch(error => {
+            console.error("Ошибка при инициализации:", error);
+        });
 });
