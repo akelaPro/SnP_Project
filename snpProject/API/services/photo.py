@@ -74,34 +74,27 @@ class DeletePhotoService(BaseService):
             logger.info(f"Photo {locked_photo.id} marked for deletion, moderation: {locked_photo.moderation}")
             return locked_photo
         
-        
+
 class RestorePhotoService(BaseService):
     def process(self):
         photo = self.data['photo']
         user = self.data['user']
         
-        logger.info(f"Попытка восстановления фото {photo.id}. Текущий статус: moderation={photo.moderation}, deleted_at={photo.deleted_at}")
-        
-        if photo.author != user:
-            raise exceptions.PermissionDenied("Нет прав на восстановление")
+        with transaction.atomic():
+            photo = Photo.objects.select_for_update().get(pk=photo.id)
             
-        if photo.moderation != '1':
-            logger.warning(f"Фото {photo.id} не помечено на удаление (moderation={photo.moderation})")
-            raise exceptions.ValidationError("Фото не помечено на удаление")
+            if photo.author != user:
+                raise exceptions.PermissionDenied("Нет прав на восстановление")
+                
+            if photo.moderation != '1':
+                raise exceptions.ValidationError("Фото не помечено на удаление")
 
-        if photo.delete_task_id:
-            from celery.result import AsyncResult
-            task = AsyncResult(photo.delete_task_id)
-            if not task.ready():
-                logger.info(f"Отменяем задачу удаления {photo.delete_task_id}")
-                task.revoke()
-
-        photo.moderation = '3'
-        photo.deleted_at = None
-        photo.delete_task_id = None
-        photo.save()
-        
-        logger.info(f"Фото {photo.id} успешно восстановлено")
+            photo.moderation = '3'
+            photo.deleted_at = None
+            photo.delete_task_id = None
+            photo.save()
+            
+        return photo
 
 class UpdatePhotoService(BaseService):
     def process(self):
