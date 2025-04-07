@@ -15,22 +15,3 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"Уведомление для {self.user.email}"
-
-    def send_email_notification(self):
-        if not self.email_sent and hasattr(self.user, 'email') and self.user.email:
-            subject = f"Новое уведомление: {self.notification_type}"
-            html_message = render_to_string('notification/email_notification.html', {
-                'notification': self,
-                'site_url': settings.SITE_URL
-            })
-            plain_message = strip_tags(html_message)
-            
-            # Используем сигналы вместо прямого импорта
-            signals.request_started.send(
-                sender=self.__class__,
-                notification_id=self.id,
-                subject=subject,
-                message=plain_message,
-                recipient_email=self.user.email,
-                html_message=html_message
-            )

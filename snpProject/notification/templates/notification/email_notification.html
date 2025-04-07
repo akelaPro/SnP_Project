@@ -1,29 +1,19 @@
-<!-- notification/templates/notification/email_notification.html -->
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Новое уведомление</title>
-    <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-        .content { margin: 20px 0; }
-        .footer { font-size: 0.8em; color: #777; }
-    </style>
+    <meta charset="utf-8">
+    <title>{{ subject }}</title>  <!-- Используем subject -->
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h2>У вас новое уведомление</h2>
-        </div>
-        <div class="content">
-            <p><strong>Тип:</strong> {{ notification.notification_type }}</p>
-            <p><strong>Сообщение:</strong> {{ notification.message }}</p>
-            <p><strong>Дата:</strong> {{ notification.created_at }}</p>
-        </div>
-        <div class="footer">
-            <p>Вы можете просмотреть это уведомление в <a href="{{ site_url }}/notifications/">личном кабинете</a>.</p>
-        </div>
-    </div>
+    <h1>{{ subject }}</h1> <!-- Используем subject -->
+    <p>{{ message }}</p> <!-- Используем message -->
+    {% if photo_title %}
+        <p>Фотография: {{ photo_title }}</p> <!-- Используем photo_title -->
+    {% endif %}
+    {% if photo_id %}
+        <p>ID фотографии: {{ photo_id }}</p> <!-- Используем photo_id -->
+        <p>Ссылка на фотографию: <a href="{{ site_url }}/photos/{{ photo_id }}/">Посмотреть</a></p>
+    {% endif %}
+    <p>Перейти на сайт: <a href="{{ site_url }}">Перейти</a></p>
 </body>
 </html>
