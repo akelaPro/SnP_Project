@@ -47,13 +47,17 @@ class Photo(models.Model):
     def save(self, *args, **kwargs):
         if self.pk:  # Если объект уже существует
             old = Photo.objects.get(pk=self.pk)
+            if old.image != self.image:  # Если изображение изменилось
+            # Сохраняем старое изображение
+                if old.image:
+                    self.old_image = old.image
             if old.moderation != self.moderation or old.deleted_at != self.deleted_at:
                 logger.info(
                     f"Изменение статуса фото {self.id}: "
                     f"moderation {old.moderation}->{self.moderation}, "
                     f"deleted_at {old.deleted_at}->{self.deleted_at}"
                 )
-        super().save(*args, **kwargs)    
+        super().save(*args, **kwargs) 
 
 @receiver(post_save, sender=Photo)
 def handle_photo_moderation(sender, instance, **kwargs):

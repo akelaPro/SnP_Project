@@ -20,11 +20,11 @@ class CreatePhotoService(BaseService):
         # Notify user with subject
         self.notify_user(
             user,
-            f"Фотография '{validated_data['title']}' успешно создана.",
+            f"Фотография '{validated_data['title']}' Отправлена на модерацию.",
             'photo_created',
             photo_title = validated_data['title'],  # передаем title
             photo_id = photo.id,
-            subject=f"Удаление фотографии: {validated_data['title']}"  # Добавляем subject
+            subject=f"Создание фотографии: {validated_data['title']}"  # Добавляем subject
         )
 
         return photo
@@ -94,25 +94,49 @@ class RestorePhotoService(BaseService):
             photo.delete_task_id = None
             photo.save()
             
+            try:
+                self.notify_user(
+                    photo.author,
+                    f"Фотография '{photo.title}' востановленна.",
+                    'photo_deleted',
+                    subject=f"Восстановление фотографии: {photo.title}"
+                )
+            except Exception as e:
+                logger.error(f"Notification failed but photo is still marked for redtore: {str(e)}")
+
         return photo
 
 class UpdatePhotoService(BaseService):
     def process(self):
-        photo = self.data['photo']
+        instance = self.data['photo']
         user = self.data['user']
-        validated_data = self.data['validated_data']
-        
-        if photo.author != user:
+        serializer_class = self.data['serializer_class']  # Получаем класс сериализатора из данных
+        request = self.data['request']
+    
+        if instance.author != user:
             raise exceptions.PermissionDenied("Вы не можете изменять эту фотографию.")
+        
+        with transaction.atomic():
+            # Lock the instance for update
+            instance = Photo.objects.select_for_update().get(pk=instance.id)
             
-        for attr, value in validated_data.items():
-            setattr(photo, attr, value)
-        photo.save()
+            # Используем переданный serializer_class вместо вызова несуществующего метода
+            serializer = serializer_class(
+                instance, 
+                data=request.data, 
+                partial=True,
+                context={'request': request}
+            )
+            serializer.is_valid(raise_exception=True)
+            instance = serializer.save()
+            
+            # Refresh from database to ensure we have latest version
+            instance.refresh_from_db()
         
-        self.notify_user(
-            photo.author,
-            f"Фотография '{photo.title}' успешно обновлена.",
-            'photo_updated'
-        )
-        
-        return photo
+            self.notify_user(
+                user=instance.author,
+                message=f"Фотография '{instance.title}' успешно обновлена.",
+                notification_type='photo_updated'
+            )
+            
+            return instance

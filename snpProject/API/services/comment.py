@@ -14,14 +14,16 @@ class CreateCommentService(BaseService):
             self.notify_user(
                 comment.photo.author,
                 f"Пользователь {user.username} оставил комментарий к вашей фотографии.",
-                'comment'
+                'comment',
             )
 
         if comment.parent and comment.parent.author != user:
             self.notify_user(
                 comment.parent.author,
                 f"Пользователь {user.username} ответил на ваш комментарий.",
-                'reply'
+                'reply',
+                subject=f"Комментарий к фотографии: {comment.text}"
+                
             )
 
         return comment

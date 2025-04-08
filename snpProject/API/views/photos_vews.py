@@ -5,6 +5,16 @@ from drf_spectacular.utils import extend_schema
 from API.serializers import PhotoSerializer
 from rest_framework.decorators import action
 from django.db import transaction
+from rest_framework.viewsets import ModelViewSet
+from rest_framework.response import Response
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.filters import SearchFilter, OrderingFilter
+from API.services.list import PhotoListService
+from galery.models import Photo
+from API.serializers import PhotoSerializer
+
+
+
 from galery.models import *
 from API.services.photo import (
     CreatePhotoService, 
@@ -17,8 +27,26 @@ from API.services.photo import (
 
 @extend_schema(tags=["Photos"])
 class PhotoViewSet(viewsets.ModelViewSet):
-    queryset = Photo.objects.all()
+    queryset = Photo.objects.none()  # Будет переопределено в get_queryset
     serializer_class = PhotoSerializer
+    parser_classes = [MultiPartParser, FormParser]
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields = ['title', 'author__username', 'description']
+    ordering_fields = ['votes_count', 'published_at', 'comments_count']
+    ordering = ['-published_at']
+
+    def get_queryset(self):
+        # Получаем базовый queryset из сервиса
+        base_queryset = PhotoListService().execute({
+            'action': self.action
+        })
+        
+        # Применяем стандартные DRF фильтры (поиск и сортировка)
+        for backend in list(self.filter_backends):
+            base_queryset = backend().filter_queryset(self.request, base_queryset, self)
+            
+        return base_queryset
+
 
     def perform_create(self, serializer):
         photo = CreatePhotoService.execute({
@@ -47,15 +75,16 @@ class PhotoViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(photo)
         return Response(serializer.data)
 
+    @transaction.atomic
     def update(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
+        instance = self.get_object()
         
         photo = UpdatePhotoService.execute({
-            'photo': self.get_object(),
+            'photo': instance,
             'user': request.user,
-            'validated_data': serializer.validated_data
+            'serializer_class': self.get_serializer_class(),
+            'request': request
         })
-        
+    
         serializer = self.get_serializer(photo)
         return Response(serializer.data)

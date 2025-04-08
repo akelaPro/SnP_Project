@@ -4,6 +4,7 @@ from PIL import Image
 import logging
 from API.serializers.auth import BaseUserSerializer
 from galery.models.photo.models import Photo
+from django.db import transaction
 
 logger = logging.getLogger('api')
 
