@@ -1,33 +1,21 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from API.serializers import *
-from django.contrib.auth import get_user_model
-from galery.models import Photo
-from rest_framework.generics import CreateAPIView
-
-
-
+from API.services.user import GetUserProfileService, UpdateUserProfileService
 
 class UserProfileAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        user = request.user
-        serializer = Serializer(user)
-        return Response(serializer.data)
-
-
+        data = GetUserProfileService.execute({'user': request.user})
+        return Response(data)
 
 class UpdateUserProfileAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def put(self, request):
-        user = request.user
-        serializer = Serializer(user, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=400)
-    
-
+        data = UpdateUserProfileService.execute({
+            'user': request.user,
+            'request_data': request.data
+        })
+        return Response(data)

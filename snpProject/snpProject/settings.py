@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'API.apps.ApiConfig',
     'notification.apps.NotificationConfig',
     'drf_spectacular',
+    'service_objects',
     
 ]
 
