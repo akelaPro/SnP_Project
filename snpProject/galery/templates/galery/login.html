@@ -6,6 +6,9 @@
     <form id="loginForm">
         {% csrf_token %}
         <div class="mb-3">
+        <a href="{% url 'social:begin' 'vk-oauth2' %}">Login with VK</a>
+        </div>
+        <div class="mb-3">
             <label for="email" class="form-label">Email</label>
             <input type="email" class="form-control" id="email" required>
         </div>

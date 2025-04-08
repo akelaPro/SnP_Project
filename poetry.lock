@@ -1569,6 +1569,32 @@ files = [
 ]
 
 [[package]]
+name = "python-social-auth"
+version = "0.3.6"
+description = "Python social authentication made simple."
+optional = false
+python-versions = "*"
+files = [
+    {file = "python-social-auth-0.3.6.tar.gz", hash = "sha256:6986220df76934aee15c54938a13ebe370a1976e043af01fa3bea417f6722e74"},
+    {file = "python_social_auth-0.3.6-py2-none-any.whl", hash = "sha256:9aaad6f7bf83fd129620eadaab1e78e63200da61a5d8898fd1aa243686b36575"},
+    {file = "python_social_auth-0.3.6-py3-none-any.whl", hash = "sha256:8aac8531f7dd4d1b9af606654532fef4f615cb437774a7a1f8dcdebe89c17664"},
+]
+
+[package.dependencies]
+social-auth-core = "*"
+
+[package.extras]
+cherrypy = ["social-auth-app-cherrypy"]
+django = ["social-auth-app-django"]
+django-mongoengine = ["social-auth-app-django-mongoengine"]
+flask = ["social-auth-app-flask", "social-auth-app-flask-sqlalchemy"]
+flask-mongoengine = ["social-auth-app-flask-mongoengine"]
+flask-peewee = ["social-auth-app-flask-peewee"]
+pyramid = ["social-auth-app-pyramid"]
+tornado = ["social-auth-app-tornado"]
+webpy = ["social-auth-app-webpy"]
+
+[[package]]
 name = "python3-openid"
 version = "3.2.0"
 description = "OpenID support for modern servers and consumers."
@@ -1887,18 +1913,21 @@ files = [
 
 [[package]]
 name = "social-auth-app-django"
-version = "5.4.2"
+version = "5.4.3"
 description = "Python Social Authentication, Django integration."
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=3.9"
 files = [
-    {file = "social-auth-app-django-5.4.2.tar.gz", hash = "sha256:c8832c6cf13da6ad76f5613bcda2647d89ae7cfbc5217fadd13477a3406feaa8"},
-    {file = "social_auth_app_django-5.4.2-py3-none-any.whl", hash = "sha256:0c041a31707921aef9a930f143183c65d8c7b364381364a50f3f7c6fcc9d62f6"},
+    {file = "social_auth_app_django-5.4.3-py3-none-any.whl", hash = "sha256:db70b972faeb10ee1ec83d0dc7dbd0558d5f5830417bba317b712b10ff58d031"},
+    {file = "social_auth_app_django-5.4.3.tar.gz", hash = "sha256:d1f4286d5ca1e512c9b2f686e7ecb2a0128148f1a33d853b69dc07b58508362e"},
 ]
 
 [package.dependencies]
 Django = ">=3.2"
-social-auth-core = ">=4.4.1"
+social-auth-core = ">=4.4,<5.0"
+
+[package.extras]
+dev = ["coverage (>=3.6)"]
 
 [[package]]
 name = "social-auth-core"
@@ -2172,4 +2201,4 @@ testing = ["coverage[toml]", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "eeca326c8fe82f6ed379fab7713932a9bb3c4e7aa8f625d3b00a216576046e10"
+content-hash = "1fc5ce5c9442c0386a214f7ad55c224adaf0b01d5a2ae5e172c5badaf6bea6b3"

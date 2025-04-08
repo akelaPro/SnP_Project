@@ -30,7 +30,10 @@ SECRET_KEY = config('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    '127.0.0.1',
+    'localhost',
+]
 
 
 # Application definition
@@ -53,6 +56,7 @@ INSTALLED_APPS = [
     'notification.apps.NotificationConfig',
     'drf_spectacular',
     'service_objects',
+    'social_django',
     
 ]
 
@@ -201,6 +205,7 @@ REST_FRAMEWORK = {
 
 
 AUTHENTICATION_BACKENDS = [
+    'social_core.backends.vk.VKOAuth2',
     'django.contrib.auth.backends.ModelBackend',
     'API.authentication.EmailAuthBackend',
 ]
@@ -251,3 +256,15 @@ EMAIL_USE_SSL = True
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 SERVER_EMAIL = EMAIL_HOST_USER
 EMAIL_ADMIN = EMAIL_HOST_USER
+
+SOCIAL_AUTH_VK_OAUTH2_KEY = '53406494'
+SOCIAL_AUTH_VK_OAUTH2_SECRET = '56Kc1fpe4NCOgTdX7agx'
+#SOCIAL_AUTH_VK_OAUTH2_SCOPE = ['email']  # запрашиваем email
+#SOCIAL_AUTH_VK_OAUTH2_EXTRA_DATA = ['first_name', 'last_name']
+
+# URL перенаправления после аутентификации
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/'
+
+# Для работы с Daphne и ASGI
+SOCIAL_AUTH_POSTGRES_JSONFIELD = True

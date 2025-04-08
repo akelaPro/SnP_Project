@@ -29,6 +29,8 @@ celery = "^5.4.0"
 whitenoise = "^6.8.2"
 drf-spectacular = "^0.28.0"
 django-service-objects = "^0.7.1"
+social-auth-app-django = "^5.4.3"
+python-social-auth = "^0.3.6"
 
 
 

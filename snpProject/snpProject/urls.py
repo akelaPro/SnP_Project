@@ -20,7 +20,9 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, Spec
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('API.urls', namespace='API')),
-    path('galery/', include('galery.urls', namespace='galery')),  
+    path('galery/', include('galery.urls', namespace='galery')), 
+    path('social-auth/', include('social_django.urls', namespace='social')),
+
     #path('accounts/', include('django.contrib.auth.urls')),
     path('notifications/', include('notification.urls')),
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
