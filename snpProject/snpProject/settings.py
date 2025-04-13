@@ -16,6 +16,17 @@ from pathlib import Path
 from decouple import config
 import dj_database_url
 
+DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+
+AWS_ACCESS_KEY_ID = config('YANDEX_ID_CLOUD_SERVICE')  # Из JSON-ключа
+AWS_SECRET_ACCESS_KEY = config('YANDEX_SECRET_KEY_CLOUD_SERVICE')
+AWS_STORAGE_BUCKET_NAME = config('YANDEX_BUCKET_NAME')
+AWS_S3_ENDPOINT_URL = 'https://storage.yandexcloud.net'
+AWS_S3_REGION_NAME = 'ru-central1'  # Или другой регион, если используете
+AWS_DEFAULT_ACL = 'public-read'  # Для публичного доступа к файлам
+AWS_QUERYSTRING_AUTH = False  # Отключаем подписанные URL (если не нужны)
+AWS_LOCATION = ''
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -57,6 +68,7 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'service_objects',
     'social_django',
+    'storages',
     
 ]
 
@@ -247,8 +259,8 @@ EMAIL_ENABLED = config('EMAIL_ENABLED', default=True, cast=bool)
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 SITE_URL = config('SITE_URL', default='http://localhost:8000')
 
-EMAIL_HOST = "smtp.yandex.ru"
-EMAIL_PORT = 465
+EMAIL_HOST = config('EMAIL_HOST')
+EMAIL_PORT = config('EMAIL_PORT')
 EMAIL_HOST_USER = config('EMAIL')
 EMAIL_HOST_PASSWORD = config('EMAIL_PASSWORD')
 EMAIL_USE_SSL = True
@@ -257,8 +269,8 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 SERVER_EMAIL = EMAIL_HOST_USER
 EMAIL_ADMIN = EMAIL_HOST_USER
 
-SOCIAL_AUTH_VK_OAUTH2_KEY = '53406494'
-SOCIAL_AUTH_VK_OAUTH2_SECRET = '56Kc1fpe4NCOgTdX7agx'
+SOCIAL_AUTH_VK_OAUTH2_KEY = config('SOCIAL_AUTH_VK_OAUTH2_KEY')
+SOCIAL_AUTH_VK_OAUTH2_SECRET = config('SOCIAL_AUTH_VK_OAUTH2_SECRET')
 #SOCIAL_AUTH_VK_OAUTH2_SCOPE = ['email']  # запрашиваем email
 #SOCIAL_AUTH_VK_OAUTH2_EXTRA_DATA = ['first_name', 'last_name']
 
@@ -268,3 +280,6 @@ LOGOUT_REDIRECT_URL = '/'
 
 # Для работы с Daphne и ASGI
 SOCIAL_AUTH_POSTGRES_JSONFIELD = True
+
+
+

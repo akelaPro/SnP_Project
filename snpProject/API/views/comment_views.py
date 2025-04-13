@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from API.serializers import CommentSerializer
-from API.services.comment import CreateCommentService, DeleteCommentService
+from API.services import *
 from galery.models import *
 
 

@@ -2,7 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, exceptions
 from API.serializers import LoginSerializer, RefreshSerializer
-from API.services.auth import LoginService, RefreshService, LogoutService
+from API.services import *
 from API.authentication import CustomTokenAuthentication
 from rest_framework.permissions import IsAuthenticated
 

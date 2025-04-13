@@ -1,7 +1,7 @@
 from rest_framework.response import Response
 from rest_framework import status
 
-from API.services.vote import CreateVoteService
+from API.services import *
 from galery.models import Vote
 from API.serializers import *
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
