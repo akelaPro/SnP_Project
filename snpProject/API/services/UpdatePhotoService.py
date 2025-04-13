@@ -1,3 +1,4 @@
+from API.serializers.photos import PhotoSerializer
 from galery.models import Photo
 from django.utils import timezone
 from django.db import transaction
@@ -9,37 +10,37 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+# API/services.py
 class UpdatePhotoService(BaseService):
     def process(self):
         instance = self.data['photo']
         user = self.data['user']
-        serializer_class = self.data['serializer_class']  # Получаем класс сериализатора из данных
         request = self.data['request']
-    
+
         if instance.author != user:
             raise exceptions.PermissionDenied("Вы не можете изменять эту фотографию.")
-        
-        with transaction.atomic():
-            # Lock the instance for update
-            instance = Photo.objects.select_for_update().get(pk=instance.id)
-            
-            # Используем переданный serializer_class вместо вызова несуществующего метода
-            serializer = serializer_class(
-                instance, 
-                data=request.data, 
-                partial=True,
-                context={'request': request}
-            )
-            serializer.is_valid(raise_exception=True)
-            instance = serializer.save()
-            
-            # Refresh from database to ensure we have latest version
-            instance.refresh_from_db()
-        
+
+        serializer = PhotoSerializer(
+            instance,
+            data=request.data,
+            partial=True,  # Разрешаем частичное обновление
+            context={'request': request}
+        )
+
+        if serializer.is_valid():
+            with transaction.atomic():
+                # Lock the instance for update
+                instance = Photo.objects.select_for_update().get(pk=instance.id)
+                instance = serializer.save()
+                instance.refresh_from_db()  # Ensure you have the latest version
+
             self.notify_user(
                 user=instance.author,
                 message=f"Фотография '{instance.title}' успешно обновлена.",
                 notification_type='photo_updated'
             )
-            
             return instance
+        else:
+            # Обработка ошибок валидации
+            print(serializer.errors) # Логируем ошибки
+            raise exceptions.ValidationError(serializer.errors)

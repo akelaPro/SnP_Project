@@ -607,20 +607,20 @@ $(document).ready(function() {
     // Обработчик для формы редактирования фотографии
     $('#edit-photo-form').submit(function(e) {
         e.preventDefault();
-
-        const formData = new FormData(this);
-
+    
+        const formData = new FormData(this); // Используйте FormData из формы
+    
         // Проверка содержимого FormData
         for (let [key, value] of formData.entries()) {
             console.log(key, value); // Логируем ключи и значения
         }
-
+    
         $.ajax({
             url: `/api/photos/${photoId}/`,
             method: 'PATCH',
-            formData,
-            processData: false, // Не обрабатывать данные
-            contentType: false, // Не устанавливать Content-Type
+            data: formData, // Отправляем formData напрямую
+            processData: false,
+            contentType: false,
             headers: {
                 'X-CSRFToken': '{{ csrf_token }}'
             },
@@ -629,8 +629,10 @@ $(document).ready(function() {
                 loadPhotoDetails(); // Обновляем информацию о фото
                 $('#edit-photo-form').hide(); // Скрываем форму редактирования
             },
-            error: function(xhr) {
+            error: function(xhr, status, error) {
                 console.error('Ошибка при обновлении фотографии:', xhr.responseText);
+                console.error('Статус ошибки:', status);
+                console.error('Текст ошибки:', error);
                 alert('Ошибка при обновлении фотографии: ' + xhr.responseText);
             }
         });
