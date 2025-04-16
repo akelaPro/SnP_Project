@@ -16,7 +16,16 @@ from pathlib import Path
 from decouple import config
 import dj_database_url
 
-DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+#DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+
+STORAGES = {
+    "default": {
+        "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
 
 AWS_ACCESS_KEY_ID = config('YANDEX_ID_CLOUD_SERVICE')  # Из JSON-ключа
 AWS_SECRET_ACCESS_KEY = config('YANDEX_SECRET_KEY_CLOUD_SERVICE')
@@ -170,8 +179,8 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
 ]
-
-MEDIA_URL = '/media/'
+#'https://galerytest.storage.yandexcloud.net' '/media/'
+MEDIA_URL = 'https://galerytest.storage.yandexcloud.net/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 AUTH_USER_MODEL = 'galery.User'

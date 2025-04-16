@@ -1,7 +1,6 @@
 # API/task.py
 from celery import shared_task
 from galery.models import Photo
-import os
 from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
@@ -11,8 +10,10 @@ from galery.models import Photo
 import logging
 from django.db import connection
 logger = logging.getLogger(__name__)
-
 from django.db import transaction
+import boto3
+from storages.backends.s3boto3 import S3Boto3Storage
+from decouple import config
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=60, max_retries=3)
 def delete_photo(self, photo_id):
@@ -34,15 +35,15 @@ def delete_photo(self, photo_id):
                 logger.info(f"Waiting {30 - time_passed} more seconds...")
                 raise self.retry(countdown=min(30 - time_passed, 10))
             
-            # Delete file if exists
+            # Delete file from Yandex Object Storage
             if photo.image:
                 try:
-                    file_path = photo.image.path
-                    if os.path.exists(file_path):
-                        os.remove(file_path)
-                        logger.info(f"Deleted file for photo {photo_id}")
+                    storage = S3Boto3Storage()
+                    file_name = photo.image.name  # Получаем имя файла относительно бакета
+                    storage.delete(file_name) # Удаляем файл из бакета
+                    logger.info(f"Deleted file {file_name} for photo {photo_id} from Yandex Object Storage")
                 except Exception as e:
-                    logger.error(f"Error deleting file: {str(e)}")
+                    logger.error(f"Error deleting file from Yandex Object Storage: {str(e)}")
                     # Don't fail the task just because file deletion failed
             
             # Delete record

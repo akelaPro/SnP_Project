@@ -33,10 +33,10 @@ class Photo(models.Model):
         return dict(self.STATUS_CHOICES).get(self.moderation, 'Неизвестный статус')
 
     def delete_old_image(self):
-        """Удаляет старую фотографию из файловой системы."""
+        """Удаляет старую фотографию из хранилища S3."""
         if self.old_image:
-            if os.path.isfile(self.old_image.path):
-                os.remove(self.old_image.path)
+        # Удаляем файл из S3
+            self.old_image.delete(save=False)
             self.old_image = None
             self.save()
 
