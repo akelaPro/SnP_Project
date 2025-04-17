@@ -226,7 +226,7 @@ REST_FRAMEWORK = {
 
 
 AUTHENTICATION_BACKENDS = [
-    'social_core.backends.vk.VKOAuth2',
+    'social_core.backends.github.GithubOAuth2',
     'django.contrib.auth.backends.ModelBackend',
     'API.authentication.EmailAuthBackend',
 ]
@@ -278,14 +278,14 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 SERVER_EMAIL = EMAIL_HOST_USER
 EMAIL_ADMIN = EMAIL_HOST_USER
 
-SOCIAL_AUTH_VK_OAUTH2_KEY = config('SOCIAL_AUTH_VK_OAUTH2_KEY')
-SOCIAL_AUTH_VK_OAUTH2_SECRET = config('SOCIAL_AUTH_VK_OAUTH2_SECRET')
+SOCIAL_AUTH_GITHUB_SECRET = '08d01c6313d8c93355a28a7d5aa7c647cb26708e'
+SOCIAL_AUTH_GITHUB_CALLBACK_URL = 'http://127.0.0.1:8000/auth/complete/github/'
+SOCIAL_AUTH_GITHUB_KEY = 'Ov23liCCzAfGz8xbLCF2'
 #SOCIAL_AUTH_VK_OAUTH2_SCOPE = ['email']  # запрашиваем email
 #SOCIAL_AUTH_VK_OAUTH2_EXTRA_DATA = ['first_name', 'last_name']
 
 # URL перенаправления после аутентификации
-LOGIN_REDIRECT_URL = '/'
-LOGOUT_REDIRECT_URL = '/'
+
 
 # Для работы с Daphne и ASGI
 SOCIAL_AUTH_POSTGRES_JSONFIELD = True
