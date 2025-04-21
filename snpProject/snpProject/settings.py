@@ -16,6 +16,11 @@ from pathlib import Path
 from decouple import config
 import dj_database_url
 
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
+import boto3
+boto3.set_stream_logger(name='botocore', level=logging.DEBUG)
 #DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 
 STORAGES = {
@@ -29,7 +34,7 @@ STORAGES = {
 
 AWS_ACCESS_KEY_ID = config('YANDEX_ID_CLOUD_SERVICE')  # Из JSON-ключа
 AWS_SECRET_ACCESS_KEY = config('YANDEX_SECRET_KEY_CLOUD_SERVICE')
-AWS_STORAGE_BUCKET_NAME = config('YANDEX_BUCKET_NAME')
+AWS_STORAGE_BUCKET_NAME = 'galerytest'
 AWS_S3_ENDPOINT_URL = 'https://storage.yandexcloud.net'
 AWS_S3_REGION_NAME = 'ru-central1'  # Или другой регион, если используете
 AWS_DEFAULT_ACL = 'public-read'  # Для публичного доступа к файлам
@@ -180,7 +185,7 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
 ]
 #'https://galerytest.storage.yandexcloud.net' '/media/'
-MEDIA_URL = 'https://galerytest.storage.yandexcloud.net/media/'
+MEDIA_URL = f'https://galerytest.storage.yandexcloud.net/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 AUTH_USER_MODEL = 'galery.User'
@@ -228,7 +233,7 @@ REST_FRAMEWORK = {
 AUTHENTICATION_BACKENDS = [
     'social_core.backends.github.GithubOAuth2',
     'django.contrib.auth.backends.ModelBackend',
-    'API.authentication.EmailAuthBackend',
+    #'API.authentication.EmailAuthBackend',
 ]
 
 SPECTACULAR_SETTINGS = {
@@ -278,17 +283,51 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 SERVER_EMAIL = EMAIL_HOST_USER
 EMAIL_ADMIN = EMAIL_HOST_USER
 
+
+
+SOCIAL_AUTH_GITHUB_SCOPE = ['user:email']
+#SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/auth/github/callback/'
+#SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/auth/github/callback/'
+SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/'  # Перенаправлять на главную страницу
+SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/'
+
+
 SOCIAL_AUTH_GITHUB_SECRET = '08d01c6313d8c93355a28a7d5aa7c647cb26708e'
 SOCIAL_AUTH_GITHUB_CALLBACK_URL = 'http://127.0.0.1:8000/auth/complete/github/'
 SOCIAL_AUTH_GITHUB_KEY = 'Ov23liCCzAfGz8xbLCF2'
-#SOCIAL_AUTH_VK_OAUTH2_SCOPE = ['email']  # запрашиваем email
-#SOCIAL_AUTH_VK_OAUTH2_EXTRA_DATA = ['first_name', 'last_name']
-
-# URL перенаправления после аутентификации
 
 
 # Для работы с Daphne и ASGI
 SOCIAL_AUTH_POSTGRES_JSONFIELD = True
+SOCIAL_AUTH_PIPELINE = (
+    'social_core.pipeline.social_auth.social_details',
+    'social_core.pipeline.social_auth.social_uid',
+    'social_core.pipeline.social_auth.auth_allowed',
+    'social_core.pipeline.social_auth.social_user',
+    'social_core.pipeline.user.get_username',
+    'social_core.pipeline.user.create_user',
+    'social_core.pipeline.social_auth.associate_user',
+    'social_core.pipeline.social_auth.load_extra_data',
+    'social_core.pipeline.user.user_details',
+)
 
+SOCIAL_AUTH_URL_NAMESPACE = 'social'
+
+
+
+CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_SECURE = not DEBUG  # True в production
+CSRF_COOKIE_SAMESITE = 'Lax'
+
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SECURE = not DEBUG  # True в production
+SESSION_COOKIE_SAMESITE = 'Lax'
+
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+]
+CORS_EXPOSE_HEADERS = ['Content-Type', 'X-CSRFToken']
 
 

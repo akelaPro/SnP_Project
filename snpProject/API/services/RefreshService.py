@@ -7,9 +7,11 @@ from .base import BaseService
 from rest_framework import exceptions
 
 
-class RefreshService(BaseService):
-    def process(self):
-        refresh_token = self.data['refresh_token']
+
+class RefreshService:
+    @classmethod
+    def execute(cls, data):
+        refresh_token = data['refresh_token']
         refresh_hash = hash_token(refresh_token)
         
         try:
@@ -25,11 +27,11 @@ class RefreshService(BaseService):
 
         user_token.access_token_hash = hash_token(new_access)
         user_token.refresh_token_hash = hash_token(new_refresh)
-        user_token.access_token_expires = timezone.now() + timezone.timedelta(minutes=2)
+        user_token.access_token_expires = timezone.now() + timezone.timedelta(minutes=15)
         user_token.refresh_token_expires = timezone.now() + timezone.timedelta(days=7)
         user_token.save()
 
         return {
-            'access': new_access,
-            'refresh': new_refresh,
+            'access_token': new_access,
+            'refresh_token': new_refresh
         }

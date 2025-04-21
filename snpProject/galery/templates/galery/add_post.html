@@ -28,10 +28,7 @@
     $(document).ready(function() {
         $("#upload-form").submit(function(event) {
             event.preventDefault(); // Предотвращаем стандартную отправку формы
-
-            const formData = new FormData(this); // Создаем объект FormData для отправки файлов
-            const authToken = localStorage.getItem('accessToken');
-
+            const formData = new FormData(this);
             $.ajax({
                 url: '/api/photos/', // URL для загрузки фотографий
                 type: 'POST',
@@ -39,8 +36,7 @@
                 contentType: false, // Важно: не устанавливаем contentType для FormData
                 processData: false, // Важно: не обрабатываем данные
                 headers: {
-                            "Authorization": `Bearer ${authToken}`, // Добавляем токен
-                            'X-CSRFToken': '{{ csrf_token }}'
+                             'X-CSRFToken': '{{ csrf_token }}'
                         },
                 success: function(response) {
                     $("#upload-message").html("<div class='alert alert-success'>Фотография успешно загружена!</div>");

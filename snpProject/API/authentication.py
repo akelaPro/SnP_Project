@@ -11,19 +11,12 @@ from django.contrib.auth.backends import BaseBackend
 logger = logging.getLogger(__name__)
 
 class CustomTokenAuthentication(authentication.BaseAuthentication):
-    keyword = 'Bearer'
-
     def authenticate(self, request):
-        auth = authentication.get_authorization_header(request).split()
-
-        if not auth or auth[0].lower() != self.keyword.lower().encode():
+        access_token = request.COOKIES.get('access_token')
+        if not access_token:
             return None
 
-        if len(auth) != 2:
-            raise exceptions.AuthenticationFailed(_('Invalid token header.'))
-
-        token = auth[1].decode()
-        return self.authenticate_credentials(token)
+        return self.authenticate_credentials(access_token)
 
     def authenticate_credentials(self, token):
         access_hash = hash_token(token)
@@ -37,23 +30,8 @@ class CustomTokenAuthentication(authentication.BaseAuthentication):
 
         # Обновляем время жизни токена только если осталось меньше минуты
         if user_token.access_token_expires - timezone.now() < timedelta(minutes=1):
-            user_token.access_token_expires = timezone.now() + timezone.timedelta(minutes=2)
+            user_token.access_token_expires = timezone.now() + timedelta(minutes=15)
             user_token.save(update_fields=['access_token_expires'])
 
         return (user_token.user, None)
     
-class EmailAuthBackend(BaseBackend):
-    def authenticate(self, request, username=None, password=None, **kwargs):
-        try:
-            user = User.objects.get(email=username)
-            if user.check_password(password) and user.is_active:
-                return user
-        except (User.DoesNotExist, User.MultipleObjectsReturned):
-            return None
-        return None
-
-    def get_user(self, user_id):
-        try:
-            return User.objects.get(pk=user_id)
-        except User.DoesNotExist:
-            return None

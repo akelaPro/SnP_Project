@@ -6,9 +6,6 @@
     <form id="loginForm">
         {% csrf_token %}
         <div class="mb-3">
-        <a href="{% url 'social:begin' 'vk-oauth2' %}">Login with VK</a>
-        </div>
-        <div class="mb-3">
             <label for="email" class="form-label">Email</label>
             <input type="email" class="form-control" id="email" required>
         </div>
@@ -18,58 +15,38 @@
         </div>
         <button type="submit" class="btn btn-primary">Войти</button>
     </form>
-
 </div>
 
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
     $(document).ready(function() {
-        $('#loginForm').submit(function(e) {
+        $('#loginForm').submit(async function(e) {
             e.preventDefault();
-
+            
             const email = $('#email').val();
             const password = $('#password').val();
-
-            const data = JSON.stringify({
-                username: email,
-                password: password
-            });
-
-            $.ajax({
-                url: '/api/login/',
-                method: 'POST',
-                contentType: 'application/json',
-                dataType: 'json',
-                data,
-
-                headers: {
-                     'X-CSRFToken': '{{ csrf_token }}' 
-                },
-                success: function(data) {
-                    console.log("Токен после входа:", data.access); 
-                    console.log("Токен после входа:", data.refresh); 
-
-                    if (data.access && data.refresh) {  
-                        localStorage.setItem('accessToken', data.access);  
-                        localStorage.setItem('refreshToken', data.refresh); 
-                        window.location.href = '{% url "galery:home" %}';
-                    } else {
-                        alert('Не удалось получить токены.');
-                    }
-                },
-                error: function(jqXHR, textStatus, errorThrown) {
-                    alert('Ошибка при авторизации.');
+            
+            try {
+                const response = await $.ajax({
+                    url: '/api/login/',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ email, password }),
+                    xhrFields: { withCredentials: true },
+                    headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+                });
+                
+                // После успешного входа просто перенаправляем
+                window.location.href = "{% url 'galery:home' %}";
+                
+            } catch (error) {
+                console.error('Login error:', error);
+                let errorMsg = 'Ошибка при авторизации';
+                if (error.responseJSON?.detail) {
+                    errorMsg += ': ' + error.responseJSON.detail;
                 }
-            });
+                alert(errorMsg);
+            }
         });
     });
-
-    $(document).ajaxSend(function(event, xhr, settings) {
-        const token = localStorage.getItem('accessToken'); 
-        if (token) {
-            xhr.setRequestHeader('Authorization', 'Bearer ' + token); // Отправляем как Bearer
-        }
-    });
 </script>
-
 {% endblock %}

@@ -9,8 +9,22 @@
 
 {% block extra_scripts %}
 <script>
-    let accessToken = localStorage.getItem('accessToken');
-    let refreshTokenValue = localStorage.getItem('refreshToken'); 
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                let cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
     function loadPhotos(search = '', ordering = '') {
         const baseUrl = '/api/photos/';
         let url = baseUrl + '?';
@@ -18,12 +32,12 @@
         if (search) {
             params.push('search=' + search);
         }
-         if (ordering) {
+        if (ordering) {
             params.push('ordering=' + ordering);
         }
 
         if (params.length > 0) {
-             url += params.join('&');
+            url += params.join('&');
         }
 
         $.ajax({
@@ -44,7 +58,7 @@
                                     <div class="card-body">
                                         <h5 class="card-title fs-6 mb-2">${photo.title}</h5>
                                         <div class="d-flex align-items-center mb-3">
-                                            <img src="${photo.author.avatar || '/static/img/default-avatar.png'}"
+                                            <img src="${photo.author.avatar || '/media/avatars/default-avatar.png'}"
                                                  class="rounded-circle me-2"
                                                  style="width: 30px; height: 30px; object-fit: cover;"
                                                  alt="${photo.author.username}">
@@ -84,6 +98,8 @@
 
     $(document).ready(function() {
         loadPhotos();
+        console.log('Current access token:', getCookie('access_token'));
+        console.log('Current refresh token:', getCookie('refresh_token'));
     });
 </script>
 {% endblock %}

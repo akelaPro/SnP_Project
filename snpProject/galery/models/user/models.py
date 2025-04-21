@@ -14,6 +14,7 @@ from galery.models.customToken.models import UserToken
 
 
 class User(AbstractUser ):
+    first_name = models.CharField(max_length=150, verbose_name='Имя', blank=True, null=True)
     email = models.EmailField(unique=True)
     password = models.CharField(max_length=128)
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата публикации')
@@ -38,27 +39,5 @@ class User(AbstractUser ):
         verbose_name_plural = 'Пользователи'
 
 
-@receiver(post_save, sender=UserSocialAuth)
-def create_or_update_user(sender, instance, created, **kwargs):
-    breakpoint()
-    github_user = instance.extra_data
-    username = github_user.get('login')
-    email = github_user.get('email')
-    name = github_user.get('name')
-    access_token = secrets.token_urlsafe(32)
-    refresh_token = secrets.token_urlsafe(32)
-    user, created = User.objects.get_or_create(
-        username=username,
-        defaults={'email': email, 'first_name': name, 'password':'password'}
-) 
-    token = UserToken.objects.update_or_create(
-        user=user,
-        defaults={
-            'access_token_hash': hash_token(access_token),
-            'refresh_token_hash': hash_token(refresh_token),
-            'access_token_expires': timezone.now() + timezone.timedelta(minutes=2),
-            'refresh_token_expires': timezone.now() + timezone.timedelta(days=7),
-        }
-    ) 
-    
+
 

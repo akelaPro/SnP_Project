@@ -2,7 +2,7 @@ from django.db import models
 from django.dispatch import receiver
 from django.db.models.signals import post_save
 import os
-
+from django.utils import timezone
 from snpProject import settings
 import logging
 

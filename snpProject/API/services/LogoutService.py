@@ -1,8 +1,9 @@
 from .base import BaseService
 
-class LogoutService(BaseService):
-    def process(self):
-        user = self.data['user']
+class LogoutService:
+    @classmethod
+    def execute(cls, data):
+        user = data['user']
         try:
             user.token.delete()
         except:

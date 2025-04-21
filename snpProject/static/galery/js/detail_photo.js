@@ -1,9 +1,6 @@
 $(document).ready(function() {
     const photoId = window.location.pathname.split('/').filter(Boolean).pop();
-    let accessToken = localStorage.getItem('accessToken');
-    let refreshToken = localStorage.getItem('refreshToken');
-    console.log("Initial accessToken:", accessToken);
-    console.log("Initial refreshToken:", refreshToken);
+    const loginUrl = $('#login-data').data('login-url'); // Получаем URL из data-атрибута
 
     const commentForm = $('#comment-form');
     const likeButton = $('#like-button');
@@ -13,7 +10,6 @@ $(document).ready(function() {
     const deletePhotoButton = $('#delete-photo-button');
     const restorePhotoButton = $('#restore-photo-button');
     const photoActions = $('#photo-actions');
-    const timerDiv = $('#timer');
     const showAllCommentsButton = $('#show-all-comments-button');
     const hideAllCommentsButton = $('#hide-all-comments-button');
 
@@ -21,27 +17,49 @@ $(document).ready(function() {
     let tokenRefreshTimeout;
     let isRefreshing = false;
     let failedQueue = [];
+    console.log('Current access token:', getCookie('access_token'));
+    console.log('Current refresh token:', getCookie('refresh_token'));
 
-    // Auth System (Your existing auth logic)
+    function getAuthHeaders() {
+        const accessToken = getCookie('access_token');
+        const headers = {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json'
+        };
+        
+        if (accessToken) {
+            headers['Authorization'] = 'Bearer ' + accessToken;
+        } else {
+            console.error('Access token not found in cookies');
+        }
+        
+        return headers;
+    }
+
+
+    function isTokenExpired(token) {
+        if (!token) return true;
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            return payload.exp * 1000 < Date.now();
+        } catch (e) {
+            return true;
+        }
+    }
+
+
+
     function processQueue(error, token = null) {
         console.log("Processing queue:", failedQueue.length, "items. Error:", error);
-        failedQueue.forEach(prom => {
+        failedQueue.forEach(promiseData => {
             if (error) {
-                prom.reject(error);
+                promiseData.reject(error);
             } else {
-                prom.resolve(token);
+                promiseData.resolve(token);
             }
         });
         failedQueue = [];
     }
-
-    $.ajaxPrefilter(function(options, originalOptions, jqXHR) {
-        if (!options.headers) options.headers = {};
-        if (accessToken) {
-            options.headers['Authorization'] = 'Bearer ' + accessToken;
-            console.log("Adding Authorization header:", accessToken);
-        }
-    });
 
     $(document).ajaxError(function(event, jqXHR, ajaxSettings, thrownError) {
         console.log("AJAX Error:", jqXHR.status, ajaxSettings.url, thrownError);
@@ -52,10 +70,12 @@ $(document).ready(function() {
             if (isRefreshing) {
                 console.log("Refresh already in progress. Adding to queue.");
                 return new Promise(function(resolve, reject) {
-                    failedQueue.push({ resolve, reject });
+                    failedQueue.push({
+                        resolve,
+                        reject
+                    });
                 }).then(token => {
                     console.log("Using refreshed token from queue.");
-                    originalOptions.headers['Authorization'] = 'Bearer ' + token;
                     return $.ajax(originalOptions);
                 }).catch(reject);
             }
@@ -66,23 +86,16 @@ $(document).ready(function() {
             refreshTokenRequest()
                 .then(newTokens => {
                     console.log("Token refreshed successfully.");
-                    accessToken = newTokens.access;
-                    refreshToken = newTokens.refresh;
-                    localStorage.setItem('accessToken', accessToken);
-                    localStorage.setItem('refreshToken', refreshToken);
-                    console.log("New accessToken:", accessToken);
-                    originalOptions.headers['Authorization'] = 'Bearer ' + accessToken;
-                    processQueue(null, accessToken);
+                    processQueue(null);
                     isRefreshing = false;
                     scheduleTokenRefresh(120);
+                    // Повторяем запрос, используя оригинальные настройки.
                     return $.ajax(originalOptions);
                 })
                 .catch(error => {
                     console.error("Error refreshing token:", error);
                     processQueue(error, null);
                     isRefreshing = false;
-                    localStorage.removeItem('accessToken');
-                    localStorage.removeItem('refreshToken');
                     console.log("Redirecting to login...");
                     window.location.href = "{% url 'galery:login_template' %}";
                 });
@@ -98,16 +111,16 @@ $(document).ready(function() {
 
     function refreshTokenRequest() {
         return new Promise((resolve, reject) => {
-            const currentRefreshToken = localStorage.getItem('refreshToken');
+            const currentRefreshToken = getCookie('refresh_token');
             if (!currentRefreshToken) {
                 console.error("No refresh token found. Redirecting to login.");
-                localStorage.removeItem('accessToken');
-                localStorage.removeItem('refreshToken');
-                window.location.href = "{% url 'galery:login_template' %}";
+                window.location.href = loginUrl; // Используем переменную loginUrl
                 return reject("No refresh token");
             }
 
-            const data = JSON.stringify({ refresh: currentRefreshToken });
+            const data = JSON.stringify({
+                refresh: currentRefreshToken
+            });
             console.log("Attempting to refresh token...");
 
             $.ajax({
@@ -115,36 +128,72 @@ $(document).ready(function() {
                 method: 'POST',
                 contentType: 'application/json',
                 data,
-                headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
                 success: function(data) {
                     console.log("Token refresh success:", data);
-                    localStorage.setItem('accessToken', data.access);
-                    localStorage.setItem('refreshToken', data.refresh);
-                    accessToken = data.access;
-                    refreshToken = data.refresh;
-                    scheduleTokenRefresh(120);
                     resolve(data);
                 },
                 error: function(xhr) {
                     console.error("Failed to refresh token:", xhr);
-                    localStorage.removeItem('refreshToken');
-                    localStorage.removeItem('accessToken');
+                    document.cookie = "refresh_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+                    document.cookie = "access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
                     console.log("Redirecting to login after refresh failure...");
-                    window.location.href = "{% url 'galery:login_template' %}";
+                    window.location.href = loginUrl; // Используем переменную loginUrl
                     reject(xhr);
                 }
             });
         });
     }
 
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                let cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+
+    function checkAuth() {
+        return new Promise((resolve, reject) => {
+            $.ajax({
+                url: '/api/auth/verify/',
+                method: 'GET',
+                headers: getAuthHeaders(),
+                success: function(response) {
+                    console.log("Auth verified:", response);
+                    resolve(response);
+                },
+                error: function(xhr) {
+                    console.error('Auth verification failed:', xhr);
+                    if (xhr.status === 401) {
+                        // Если токен не валиден, удалить его и обновить UI
+                        document.cookie = "access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+                    }
+                    reject(xhr);
+                }
+            });
+        });
+    }
 
     // UI Functions
-    function updateAuthUI() {
-        if (accessToken) {
+    function updateAuthUI(isAuthenticated) {
+        if (isAuthenticated) {
             commentForm.show();
             likeButton.show();
             loginPromptComment.hide();
             loginPromptLike.hide();
+            //  Показать кнопку "Отменить лайк", если пользователь уже лайкнул.
+            loadPhotoDetails(); // Обновить UI на основе данных о лайках.
         } else {
             commentForm.hide();
             likeButton.hide();
@@ -161,6 +210,7 @@ $(document).ready(function() {
             $.ajax({
                 url: `/api/photos/${photoId}/?include_deleted=true`,
                 method: 'GET',
+                headers: getAuthHeaders(),  // Добавляем заголовок
                 success: function(photo) {
                     console.log("Photo details loaded successfully.");
                     $('#photo-title').text(photo.title);
@@ -168,16 +218,15 @@ $(document).ready(function() {
                     $('#photo-author').text(photo.author.username);
                     $('#photo-author-avatar').attr('src', photo.author.avatar || '');
                     $('#photo-description').text(photo.description);
-                    $('#votes-count').text(photo.votes.length || 0); // Используем votes.length
-    
+                    $('#votes-count').text(photo.votes.length || 0);
+
                     // Заполняем форму редактирования
                     $('#edit-title').val(photo.title);
                     $('#edit-description').val(photo.description);
-    
+
                     window.canEdit = photo.can_edit;
-    
+
                     if (window.canEdit) {
-                        // Условие для отображения кнопок
                         if (photo.moderation === '1' && photo.deleted_at) {
                             deletePhotoButton.hide();
                             restorePhotoButton.show();
@@ -186,25 +235,24 @@ $(document).ready(function() {
                             restorePhotoButton.hide();
                         }
                         photoActions.show();
-                        $('#edit-photo-button').show(); // Показываем кнопку редактирования
+                        $('#edit-photo-button').show();
                     } else {
                         photoActions.hide();
-                        $('#edit-photo-button').hide(); // Скрываем кнопку редактирования
+                        $('#edit-photo-button').hide();
                     }
-    
+
                     // Обрабатываем информацию о лайке пользователя
-                    console.log("photo.has_liked:", photo.has_liked); // Добавлено логирование
+                    console.log("photo.has_liked:", photo.has_liked);
                     if (photo.has_liked === true) {
                         $('#like-button').hide();
-                        // Находим voteId пользователя
-                        const userVoteId = photo.votes.find(voteId => true); // Берем первый элемент (id лайка)
-                        console.log("userVoteId:", userVoteId); // Добавлено логирование
+                        const userVoteId = photo.votes.find(vote => vote);
+                        console.log("userVoteId:", userVoteId);
                         $('#unlike-button').show().data('voteId', userVoteId);
                     } else {
                         $('#like-button').show();
                         $('#unlike-button').hide().data('voteId', null);
                     }
-    
+
                     resolve(photo);
                 },
                 error: function(xhr) {
@@ -216,23 +264,18 @@ $(document).ready(function() {
         });
     }
 
+
+    //  Удаление фото
     $('#delete-photo-button').click(function() {
         if (!confirm("Вы уверены, что хотите удалить эту фотографию?")) return;
-    
+
         $.ajax({
             url: `/api/photos/${photoId}/`,
             method: 'DELETE',
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}',
-                'Content-Type': 'application/json'
-            },
+            headers: getAuthHeaders(),
             success: function(response) {
-                
-                
                 $('#delete-photo-button').hide();
                 $('#restore-photo-button').show();
-                
-                // Refresh after 35 seconds to ensure deletion is complete
                 setTimeout(() => {
                     location.reload();
                 }, 35000);
@@ -240,22 +283,21 @@ $(document).ready(function() {
             error: function(xhr) {
                 let errorMsg = 'Ошибка при удалении фотографии';
                 if (xhr.responseJSON) {
-                    errorMsg = xhr.responseJSON.detail || 
-                              (xhr.responseJSON.non_field_errors && xhr.responseJSON.non_field_errors.join(', ')) ||
-                              JSON.stringify(xhr.responseJSON);
+                    errorMsg = xhr.responseJSON.detail ||
+                        (xhr.responseJSON.non_field_errors && xhr.responseJSON.non_field_errors.join(', ')) ||
+                        JSON.stringify(xhr.responseJSON);
                 }
-
+                alert(errorMsg);
             }
         });
     });
 
+    // Восстановление фото
     $('#restore-photo-button').click(function() {
         $.ajax({
             url: `/api/photos/${photoId}/restore_photo/`,
             method: 'POST',
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
+            headers: getAuthHeaders(),
             success: function(response) {
                 loadPhotoDetails(); // Обновляем информацию о фото, включая отображение кнопок
             },
@@ -324,34 +366,34 @@ $(document).ready(function() {
         const replies = allComments.filter(c => c.parent === comment.id);
         const repliesVisible = localStorage.getItem(`repliesVisible-${comment.id}`) === 'true';
         let html = `
-            <li id="comment-${comment.id}" style="margin-left: ${level * 30}px; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px;">
-                <div>
-                    <strong>${comment.author.username}</strong>: ${comment.text}
-                </div>
-                <div style="font-size: smaller; color: #888;">
-                    ${new Date(comment.created_at).toLocaleString()}
-                    <button class="reply-button btn btn-sm btn-outline-secondary" data-comment-id="${comment.id}">Ответить</button>
+        <li id="comment-${comment.id}" style="margin-left: ${level * 30}px; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px;">
+            <div>
+                <strong>${comment.author.username}</strong>: ${comment.text}
+            </div>
+            <div style="font-size: smaller; color: #888;">
+                ${new Date(comment.created_at).toLocaleString()}
+                <button class="reply-button btn btn-sm btn-outline-secondary" data-comment-id="${comment.id}">Ответить</button>
 
 
-                </div>
-        `;
+            </div>
+    `;
 
         if (comment.can_delete) {
             html += `
-                <div style="margin-top: 5px;">
-                <button class="edit-comment-button btn btn-sm btn-outline-primary" data-comment-id="${comment.id}">Редактировать</button>
-                <button class="delete-comment-button btn btn-sm btn-outline-danger" data-comment-id="${comment.id}">Удалить</button>
-                </div>
-            `;
+            <div style="margin-top: 5px;">
+            <button class="edit-comment-button btn btn-sm btn-outline-primary" data-comment-id="${comment.id}">Редактировать</button>
+            <button class="delete-comment-button btn btn-sm btn-outline-danger" data-comment-id="${comment.id}">Удалить</button>
+            </div>
+        `;
         }
         if (replies.length > 0) {
             html += `
-                <button class="toggle-replies-button btn btn-sm btn-link" data-comment-id="${comment.id}">
-                    ${repliesVisible ? 'Скрыть ответы' : 'Показать ответы'}
-                </button>
-                <ul class="replies" id="replies-${comment.id}" ${repliesVisible ? '' : 'style="display: none;"'}>
-                    ${replies.map(reply => buildCommentHTML(reply, allComments, level + 1)).join('')}
-                </ul>`;
+            <button class="toggle-replies-button btn btn-sm btn-link" data-comment-id="${comment.id}">
+                ${repliesVisible ? 'Скрыть ответы' : 'Показать ответы'}
+            </button>
+            <ul class="replies" id="replies-${comment.id}" ${repliesVisible ? '' : 'style="display: none;"'}>
+                ${replies.map(reply => buildCommentHTML(reply, allComments, level + 1)).join('')}
+            </ul>`;
         }
 
         html += '</li>';
@@ -362,12 +404,12 @@ $(document).ready(function() {
     function showEditForm(commentId, currentText) {
         const commentElement = $(`#comment-${commentId}`);
         const editForm = `
-            <div id="edit-form-${commentId}" style="margin-top: 10px;">
-                <textarea class="edit-comment-text form-control" rows="3">${currentText}</textarea>
-                <button class="save-edit-button btn btn-sm btn-primary" data-comment-id="${commentId}">Сохранить</button>
-                <button class="cancel-edit-button btn btn-sm btn-secondary" data-comment-id="${commentId}">Отменить</button>
-            </div>
-        `;
+        <div id="edit-form-${commentId}" style="margin-top: 10px;">
+            <textarea class="edit-comment-text form-control" rows="3">${currentText}</textarea>
+            <button class="save-edit-button btn btn-sm btn-primary" data-comment-id="${commentId}">Сохранить</button>
+            <button class="cancel-edit-button btn btn-sm btn-secondary" data-comment-id="${commentId}">Отменить</button>
+        </div>
+    `;
         commentElement.append(editForm);
         commentElement.find('.edit-comment-text').focus();
     }
@@ -391,14 +433,17 @@ $(document).ready(function() {
         const commentId = $(this).data('comment-id');
         const newText = $(this).closest('div').find('.edit-comment-text').val();
         console.log('Saving edit for comment:', commentId, 'with text:', newText);
-        const data = JSON.stringify({ text: newText })
+        const data = JSON.stringify({
+            text: newText
+        })
         $.ajax({
             url: `/api/comments/${commentId}/`,
             method: 'PATCH',
             contentType: 'application/json',
             data,
             headers: {
-                'X-CSRFToken': '{{ csrf_token }}'
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Authorization': 'Bearer ' + getCookie('access_token') // Добавляем заголовок Authorization
             },
             success: function() {
                 loadInitialComments(); // Обновляем список комментов
@@ -426,7 +471,8 @@ $(document).ready(function() {
             url: `/api/comments/${commentId}/`,
             method: 'DELETE',
             headers: {
-                'X-CSRFToken': '{{ csrf_token }}'
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Authorization': 'Bearer ' + getCookie('access_token') // Добавляем заголовок Authorization
             },
             success: function() {
                 loadInitialComments(); // Обновляем список комментов
@@ -456,7 +502,8 @@ $(document).ready(function() {
             contentType: 'application/json',
             data,
             headers: {
-                'X-CSRFToken': '{{ csrf_token }}'
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Authorization': 'Bearer ' + getCookie('access_token') // Добавляем заголовок Authorization
             },
             success: function() {
                 loadInitialComments();
@@ -476,14 +523,14 @@ $(document).ready(function() {
             return; // If form is already open, don't add another one
         }
         const replyForm = `
-            <form id="${replyFormId}" class="reply-form" data-parent-id="${commentId}" style="margin-top: 5px;">
-                <textarea class="reply-text form-control" placeholder="Ваш ответ..."></textarea>
-                <div style="margin-top: 5px;">
-                    <button type="submit" class="btn btn-sm btn-primary">Отправить ответ</button>
-                    <button type="button" class="cancel-reply btn btn-sm btn-secondary">Отменить</button>
-                </div>
-            </form>
-        `;
+        <form id="${replyFormId}" class="reply-form" data-parent-id="${commentId}" style="margin-top: 5px;">
+            <textarea class="reply-text form-control" placeholder="Ваш ответ..."></textarea>
+            <div style="margin-top: 5px;">
+                <button type="submit" class="btn btn-sm btn-primary">Отправить ответ</button>
+                <button type="button" class="cancel-reply btn btn-sm btn-secondary">Отменить</button>
+            </div>
+        </form>
+    `;
         $(this).closest('div').after(replyForm); // Insert form after the comment's content div
     });
 
@@ -534,7 +581,7 @@ $(document).ready(function() {
             data,
             headers: {
                 'X-CSRFToken': '{{ csrf_token }}',
-                'Authorization': accessToken ? 'Bearer ' + accessToken : ''
+                'Authorization': 'Bearer ' + getCookie('access_token') // Добавляем заголовок Authorization
             },
             success: () => {
                 loadPhotoDetails(); // Обновляем данные фото (счетчик комментариев)
@@ -549,13 +596,18 @@ $(document).ready(function() {
     });
 
     $('#like-button').click(function() {
-        const data = JSON.stringify({ photo: photoId });
+        const data = JSON.stringify({
+            photo: photoId
+        });
+    
+        const accessToken = getCookie('access_token');
     
         if (!accessToken) {
             console.error('Токен доступа отсутствует');
-            window.location.href = "{% url 'galery:login_template' %}";
+            window.location.href = loginUrl;
             return;
         }
+    
         console.log("accessToken перед запросом лайка:", accessToken);
     
         $.ajax({
@@ -563,10 +615,8 @@ $(document).ready(function() {
             method: 'POST',
             data,
             contentType: 'application/json',
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}',
-                'Authorization': accessToken ? 'Bearer ' + accessToken : ''
-            },
+            headers: getAuthHeaders(),
+            _retry: false, // Добавьте это, чтобы избежать рекурсии
             success: function(response) {
                 loadPhotoDetails();
                 const voteId = response.id;
@@ -575,18 +625,41 @@ $(document).ready(function() {
             },
             error: function(xhr) {
                 console.error('Ошибка при постановке лайка:', xhr.responseText);
-                alert('Ошибка при постановке лайка: ' + xhr.responseText);
+                
+                if (xhr.status === 400 && xhr.responseJSON && 
+                    xhr.responseJSON.detail === 'Вы уже поставили лайк этой фотографии.') {
+                    loadPhotoDetails();
+                    return;
+                }
+                
+                // Добавьте проверку на 401 и попытку обновить токен
+                if (xhr.status === 401 && !this._retry) {
+                    this._retry = true;
+                    refreshTokenRequest()
+                        .then(() => {
+                            // Повторяем запрос после обновления токена
+                            return $.ajax(this);
+                        })
+                        .catch(() => {
+                            window.location.href = loginUrl;
+                        });
+                    return;
+                }
+                
+                alert('Ошибка при постановке лайка: ' + (xhr.responseJSON?.detail || xhr.responseText));
             }
         });
     });
-    
+
+
     $('#unlike-button').click(function() {
         const voteId = $(this).data('voteId');
         $.ajax({
                 url: `/api/votes/${voteId}/`,
                 type: 'DELETE',
                 headers: {
-                    'X-CSRFToken': '{{ csrf_token }}'
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Authorization': 'Bearer ' + getCookie('access_token') // Добавляем заголовок Authorization
                 },
             })
             .done(() => {
@@ -607,22 +680,23 @@ $(document).ready(function() {
     // Обработчик для формы редактирования фотографии
     $('#edit-photo-form').submit(function(e) {
         e.preventDefault();
-    
+
         const formData = new FormData(this); // Используйте FormData из формы
-    
+
         // Проверка содержимого FormData
         for (let [key, value] of formData.entries()) {
             console.log(key, value); // Логируем ключи и значения
         }
-    
+
         $.ajax({
             url: `/api/photos/${photoId}/`,
             method: 'PATCH',
-            data: formData, // Отправляем formData напрямую
+            formData, // Отправляем formData напрямую
             processData: false,
             contentType: false,
             headers: {
-                'X-CSRFToken': '{{ csrf_token }}'
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Authorization': 'Bearer ' + getCookie('access_token') // Добавляем заголовок Authorization
             },
             success: function(response) {
                 alert('Фотография успешно обновлена и отправлена на модерацию.');
@@ -638,30 +712,25 @@ $(document).ready(function() {
         });
     });
 
-
     // Initialization
     Promise.all([
-            new Promise(resolve => {
-                // Дожидаемся загрузки токена из localStorage
-                const checkTokenInterval = setInterval(() => {
-                    accessToken = localStorage.getItem('accessToken');
-                    if (accessToken) {
-                        console.log("Access token loaded from localStorage:", accessToken);
-                        clearInterval(checkTokenInterval);
-                        updateAuthUI();
-                        if (accessToken) {
-                            scheduleTokenRefresh(120);
-                        }
-                        resolve();
-                    }
-                }, 50); // Проверяем каждые 50 мс
-            }),
-            loadPhotoDetails()
-        ])
-        .then(() => {
-            loadInitialComments();
-        })
-        .catch(error => {
-            console.error("Ошибка при инициализации:", error);
-        });
+        checkAuth().then(response => {
+            if (response && response.is_authenticated) {
+                updateAuthUI(true); // Обновляем UI, если пользователь аутентифицирован
+                scheduleTokenRefresh(120);
+            } else {
+                updateAuthUI(false); // Обновляем UI, если пользователь не аутентифицирован
+            }
+        }).catch(error => {
+            console.log("Auth check failed:", error);
+            updateAuthUI(false); // Обновляем UI, если проверка не удалась.
+        }),
+        loadPhotoDetails()
+    ])
+    .then(() => {
+        loadInitialComments();
+    })
+    .catch(error => {
+        console.error("Ошибка при инициализации:", error);
+    });
 });

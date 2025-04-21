@@ -49,12 +49,33 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
     $(document).ready(function() {
-        const accessToken = localStorage.getItem('accessToken'); 
-        if (!accessToken) {
-            console.error('Токен доступа отсутствует');
-          
-            //  window.location.href = "{% url 'galery:login_template' %}";
-            return;
+        // Функция для проверки аутентификации
+        function checkAuth() {
+            return new Promise((resolve) => {
+                $.ajax({
+                    url: '/api/auth/verify/',
+                    method: 'GET',
+                    xhrFields: {
+                        withCredentials: true
+                    },
+                    success: function() {
+                        resolve(true);
+                    },
+                    error: function() {
+                        resolve(false);
+                        window.location.href = "{% url 'galery:login_template' %}";
+                    }
+                });
+            });
+        }
+
+        // Основная функция загрузки данных
+        async function initProfile() {
+            const isAuthenticated = await checkAuth();
+            if (!isAuthenticated) return;
+
+            loadProfile();
+            loadPhotos();
         }
 
         function loadPhotos(search = '', ordering = '') {
@@ -81,82 +102,94 @@
             $.ajax({
                 url: url,
                 method: 'GET',
-                headers: {
-                    'Authorization': 'Bearer ' + accessToken 
+                xhrFields: {
+                    withCredentials: true
                 },
                 success: function(data) {
                     $('#photos-spinner').hide(); 
-                    let photosHtml = '';
-                    if (data.length > 0) {
-                        data.forEach(photo => {
-                            photosHtml += `
-                                <div class="col-md-4 mb-4">
-                                    <div class="card">
-                                        <a href="/photo/${photo.id}/">
-                                            <img src="${photo.image}" alt="${photo.title}" class="card-img-top" style="max-height: 200px; object-fit: cover;">
-                                        </a>
-                                        <div class="card-body">
-                                            <h5 class="card-title">${photo.title}</h5>
-                                            <p class="card-text">${photo.description}</p>
-                                            <p class="card-text">Статус: ${photo.status_display}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            `;
-                        });
-                    } else {
-                        photosHtml = `<div class="col-12"><p>У вас нет загруженных фотографий.</p></div>`;
-                    }
-                    $('#photos').html(photosHtml);
+                    renderPhotos(data);
                 },
                 error: function(xhr) {
                     $('#photos-spinner').hide();
                     console.error('Ошибка при загрузке фотографий:', xhr.responseText);
-
+                    if (xhr.status === 401) {
+                        window.location.href = "{% url 'galery:login_template' %}";
+                    }
                 }
             });
         }
 
-        // Загрузка профиля
-        $.ajax({
-            url: '{% url "API:user_profile" %}',
-            method: 'GET',
-            headers: {
-                'Authorization': 'Bearer ' + accessToken 
-            },
-            beforeSend: function(){
-              $('#profile-spinner').show(); 
-            },
-            success: function(data) {
-                $('#profile-spinner').hide(); 
-                const avatarUrl = data.avatar;
-                $('#profile-info').html(`
-                    <img src="" alt="Avatar" class="img-fluid rounded-circle mb-3" style="width: 100px; height: 100px;">
-                    <p>Логин: ${data.username}</p>
-                    <p>Email: ${data.email}</p>
-                    <button id="edit-profile" class="btn btn-primary">Редактировать</button>
-                `);
-            },
-            error: function(xhr) {
-                $('#profile-spinner').hide(); 
-                console.error('Ошибка при загрузке профиля:', xhr.responseText);
-                
+        function renderPhotos(photos) {
+            let photosHtml = '';
+            if (photos.length > 0) {
+                photos.forEach(photo => {
+                    photosHtml += `
+                        <div class="col-md-4 mb-4">
+                            <div class="card">
+                                <a href="/photo/${photo.id}/">
+                                    <img src="${photo.image}" alt="${photo.title}" class="card-img-top" style="max-height: 200px; object-fit: cover;">
+                                </a>
+                                <div class="card-body">
+                                    <h5 class="card-title">${photo.title}</h5>
+                                    <p class="card-text">${photo.description}</p>
+                                    <p class="card-text">Статус: ${photo.status_display}</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                photosHtml = `<div class="col-12"><p>У вас нет загруженных фотографий.</p></div>`;
             }
-        });
+            $('#photos').html(photosHtml);
+        }
 
+        function loadProfile() {
+            $('#profile-spinner').show();
+            
+            $.ajax({
+                url: '{% url "API:user_profile" %}',
+                method: 'GET',
+                xhrFields: {
+                    withCredentials: true
+                },
+                success: function(data) {
+                    $('#profile-spinner').hide(); 
+                    renderProfile(data);
+                },
+                error: function(xhr) {
+                    $('#profile-spinner').hide(); 
+                    console.error('Ошибка при загрузке профиля:', xhr.responseText);
+                    if (xhr.status === 401) {
+                        window.location.href = "{% url 'galery:login_template' %}";
+                    }
+                }
+            });
+        }
 
-        loadPhotos();
+        function renderProfile(profileData) {
+            $('#profile-info').html(`
+                <img src="${profileData.avatar || '/static/img/default-avatar.png'}" 
+                     alt="Avatar" 
+                     class="img-fluid rounded-circle mb-3" 
+                     style="width: 100px; height: 100px; object-fit: cover;">
+                <p>Логин: ${profileData.username}</p>
+                <p>Email: ${profileData.email}</p>
+                <button id="edit-profile" class="btn btn-primary">Редактировать</button>
+            `);
+        }
 
-        // Обработчики изменения сортировки и фильтрации
+        // Инициализация профиля
+        initProfile();
+
+        // Обработчики событий
         $('#status-filter').change(function() {
             loadPhotos();
         });
-        $('#sort-select').change(function() {
-            loadPhotos($('#search-input').val(), $(this).val()); 
-        });
-        $('#search-form').submit(function(e){
-            e.preventDefault();
-             loadPhotos($('#search-input').val(), $('#sort-select').val()); 
+
+        $('#edit-profile').on('click', function() {
+            // Здесь можно добавить логику редактирования профиля
+            alert('Функция редактирования профиля будет реализована позже');
         });
     });
 </script>

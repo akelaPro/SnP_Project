@@ -2,8 +2,8 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path, include
 from rest_framework import routers
-from API.views import PhotoViewSet, CommentViewSet, VoteViewSet
 from API.views import *
+
 
 router = routers.DefaultRouter()
 router.register(r'photos', PhotoViewSet, basename='photo')  # Убрал начальный /
@@ -21,6 +21,7 @@ urlpatterns = [
     path('logout/', LogoutView.as_view(), name='logout'),
     path('user/profile/update/', UpdateUserProfileAPIView.as_view(), name='update_user_profile'),
     path('user/profile/', UserProfileAPIView.as_view(), name='user_profile'),
+    #path('auth/github/callback/', GitHubCallbackView.as_view(), name='github_callback'),
     path('user/photos/', UserLisPhoto.as_view(), name='user_photos'),
 ]
 
