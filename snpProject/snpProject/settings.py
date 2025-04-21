@@ -309,6 +309,7 @@ SOCIAL_AUTH_PIPELINE = (
     'social_core.pipeline.social_auth.associate_user',
     'social_core.pipeline.social_auth.load_extra_data',
     'social_core.pipeline.user.user_details',
+    #'API.signals.github_auth.create_or_update_user',
 )
 
 SOCIAL_AUTH_URL_NAMESPACE = 'social'

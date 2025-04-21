@@ -45,7 +45,7 @@ class LoginView(APIView):
             response.set_cookie(
                 'access_token',
                 result['access_token'],
-                httponly=False,
+                httponly=True,
                 secure=not settings.DEBUG,
                 samesite='Lax',
                 max_age=900,  # 15 минут
@@ -54,7 +54,7 @@ class LoginView(APIView):
             response.set_cookie(
                 'refresh_token',
                 result['refresh_token'],
-                httponly=False,
+                httponly=True,
                 secure=not settings.DEBUG,
                 samesite='Lax',
                 max_age=604800,  # 7 дней

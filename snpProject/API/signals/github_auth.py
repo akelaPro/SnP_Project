@@ -13,6 +13,16 @@ from django.conf import settings
 from django.contrib.auth.hashers import make_password
 
 
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from social_django.models import UserSocialAuth
+from django.contrib.auth import get_user_model
+from django.utils import timezone
+from API.utils import hash_token
+import secrets
+from galery.models import UserToken
+from django.contrib.auth.hashers import make_password
+
 @receiver(post_save, sender=UserSocialAuth)
 def create_or_update_user(sender, instance, created, **kwargs):
     if instance.provider != 'github':
@@ -24,7 +34,7 @@ def create_or_update_user(sender, instance, created, **kwargs):
     email = github_user.get('email') or f"{username}@github.com"
     name = github_user.get('name', '').split() or [username]
 
-    user, created = User.objects.get_or_create(
+    user, user_created = User.objects.get_or_create(
         username=username,
         defaults={
             'email': email,
@@ -34,7 +44,7 @@ def create_or_update_user(sender, instance, created, **kwargs):
         }
     )
 
-    if created:
+    if user_created:
         user.set_unusable_password()
         user.save()
 
