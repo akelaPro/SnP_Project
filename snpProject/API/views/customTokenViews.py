@@ -1,3 +1,4 @@
+from datetime import timedelta
 from django.http import HttpResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -11,7 +12,7 @@ from django.utils import timezone
 from galery.models import UserToken
 from API.utils import hash_token
 import secrets
-
+from rest_framework.permissions import AllowAny
 
 
 from snpProject import settings
@@ -77,34 +78,38 @@ class LoginView(APIView):
 
 
 class RefreshView(APIView):
+    permission_classes = [AllowAny]
+
     def post(self, request):
         refresh_token = request.COOKIES.get('refresh_token')
         if not refresh_token:
-            return Response({'detail': 'Refresh token is missing'}, status=status.HTTP_400_BAD_REQUEST)
-            
-        tokens = RefreshService.execute({
-            'refresh_token': refresh_token
-        })
-        
-        response = Response(status=status.HTTP_200_OK)
+            return Response({'error': 'Refresh token missing'}, status=400)
+
+        try:
+            refresh_hash = hash_token(refresh_token)
+            user_token = UserToken.objects.get(
+                refresh_token_hash=refresh_hash,
+                refresh_token_expires__gt=timezone.now()
+            )
+        except UserToken.DoesNotExist:
+            return Response({'error': 'Invalid refresh token'}, status=401)
+
+        # Generate new access token
+        new_access_token = secrets.token_urlsafe(32)
+        user_token.access_token_hash = hash_token(new_access_token)
+        user_token.access_token_expires = timezone.now() + timedelta(minutes=15)
+        user_token.save()
+
+        response = Response({'status': 'token refreshed'})
         response.set_cookie(
-            'access_token', 
-            tokens['access_token'],
+            'access_token',
+            new_access_token,
             httponly=True,
             secure=not settings.DEBUG,
             samesite='Lax',
             max_age=900
         )
-        response.set_cookie(
-            'refresh_token',
-            tokens['refresh_token'],
-            httponly=True,
-            secure=not settings.DEBUG,
-            samesite='Lax',
-            max_age=604800
-        )
         return response
-
 class LogoutView(APIView):
     authentication_classes = [CustomTokenAuthentication]
     permission_classes = [IsAuthenticated]
@@ -118,12 +123,21 @@ class LogoutView(APIView):
 
 class VerifyTokenView(APIView):
     authentication_classes = [CustomTokenAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]  # Change from IsAuthenticated to AllowAny
 
     def get(self, request):
+        # Manually check authentication since we're using AllowAny
+        user, _ = CustomTokenAuthentication().authenticate(request)
+        
+        if user is None:
+            return Response({
+                "status": "invalid",
+                "is_authenticated": False
+            }, status=status.HTTP_401_UNAUTHORIZED)
+            
         return Response({
             "status": "valid",
-            "user_id": request.user.id,
-            "email": request.user.email,
+            "user_id": user.id,
+            "email": user.email,
             "is_authenticated": True
         }, status=status.HTTP_200_OK)
