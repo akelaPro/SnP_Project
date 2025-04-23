@@ -31,43 +31,6 @@ def create_tokens_for_user(user):
     
     return access_token, refresh_token
 
-def create_auth_tokens(strategy, backend, user, response, *args, **kwargs):
-    if not user.is_authenticated:
-        return
-    
-    access_token, refresh_token = create_tokens_for_user(user)
-    
-    # Get the existing response or create new one
-    if not isinstance(response, HttpResponseRedirect):
-        response = strategy.redirect('/')
-    
-    # Set cookies with proper domain/path
-    domain = None if settings.DEBUG else '.yourdomain.com'
-    
-    response.set_cookie(
-        'access_token', 
-        access_token,
-        httponly=True,
-        secure=not settings.DEBUG,
-        samesite='Lax',
-        max_age=900,  # 15 minutes
-        domain=domain,
-        path='/'
-    )
-    response.set_cookie(
-        'refresh_token',
-        refresh_token,
-        httponly=True,
-        secure=not settings.DEBUG,
-        samesite='Lax',
-        max_age=604800,  # 7 days
-        domain=domain,
-        path='/'
-    )
-    
-    return {'response': response}
-
-
 def get_or_create_user(strategy, details, backend, user=None, *args, **kwargs):
     if user:
         return {'is_new': False, 'user': user}
@@ -76,29 +39,68 @@ def get_or_create_user(strategy, details, backend, user=None, *args, **kwargs):
     github_username = details.get('username')
     User = strategy.storage.user.user_model()
 
-    try:
-        if email:
+    # 1. Пытаемся найти существующего пользователя по email
+    if email:
+        try:
             user = User.objects.get(email=email)
-            return {'is_new': False, 'user': user}
-    except User.DoesNotExist:
-        pass
+            # Нашли пользователя - создаем токены и возвращаем его
+            access_token, refresh_token = create_tokens_for_user(user)
+            
+            response = strategy.redirect('/')
+            response.set_cookie('access_token', access_token, 
+                              httponly=True, secure=not settings.DEBUG, 
+                              samesite='Lax', max_age=900)
+            response.set_cookie('refresh_token', refresh_token,
+                              httponly=True, secure=not settings.DEBUG,
+                              samesite='Lax', max_age=604800)
+            
+            return {
+                'is_new': False,
+                'user': user,
+                'response': response
+            }
+        except User.DoesNotExist:
+            pass  # Пользователя с таким email нет
 
-    # Create new user
-    username = github_username or f"github_{secrets.token_hex(8)}"
-    while User.objects.filter(username=username).exists():
-        username = f"{username}_{secrets.token_hex(2)}"
+    # 2. Если email не предоставлен или пользователь не найден
+    # Генерируем уникальный username
+    username = github_username
+    if username:
+        counter = 1
+        while User.objects.filter(username=username).exists():
+            username = f"{github_username}_{counter}"
+            counter += 1
+    else:
+        username = f"github_user_{secrets.token_hex(4)}"
 
+    # 3. Создаем нового пользователя (без email если он уже занят)
     try:
         user = User.objects.create_user(
             username=username,
-            email=email,
+            email=email if email and not User.objects.filter(email=email).exists() else None,
             password=None
         )
     except IntegrityError:
+        # Если все же возникла ошибка (редкий случай)
         user = User.objects.create_user(
-            username=f"github_{secrets.token_hex(12)}",
+            username=f"github_user_{secrets.token_hex(8)}",
             email=None,
             password=None
         )
-
-    return {'is_new': True, 'user': user}
+    
+    # Создаем токены
+    access_token, refresh_token = create_tokens_for_user(user)
+    
+    response = strategy.redirect('/')
+    response.set_cookie('access_token', access_token, 
+                      httponly=True, secure=not settings.DEBUG,
+                      samesite='Lax', max_age=900)
+    response.set_cookie('refresh_token', refresh_token,
+                      httponly=True, secure=not settings.DEBUG,
+                      samesite='Lax', max_age=604800)
+    
+    return {
+        'is_new': True,
+        'user': user,
+        'response': response
+    }

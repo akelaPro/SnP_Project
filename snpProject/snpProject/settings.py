@@ -200,9 +200,8 @@ DEFAULT_USER_IMAGE = MEDIA_URL + 'avatars/default_avatr/default_avatar.png'
 
 DEFAULT_PHOTO_IMAGE = MEDIA_URL + 'images/default_image.jpg'
 
-LOGIN_URL = '/galery:login/'
-LOGIN_REDIRECT_URL = 'galery:home'
-LOGOUT_REDIRECT_URL = 'galery:home'
+LOGIN_REDIRECT_URL = '/'  # Или конкретный путь, например '/home/'
+LOGOUT_REDIRECT_URL = '/'
 
 
 ASGI_APPLICATION = 'snpProject.asgi.application'
@@ -306,10 +305,11 @@ SOCIAL_AUTH_PIPELINE = (
     'social_core.pipeline.social_auth.auth_allowed',
     'social_core.pipeline.social_auth.social_user',
     'social_core.pipeline.user.get_username',
-    'API.social_auth_pipeline.get_or_create_user',
+    'social_core.pipeline.user.create_user',
+    'API.social_auth_pipeline.get_or_create_user',  # Оставить только один вызов
     'social_core.pipeline.social_auth.associate_user',
     'social_core.pipeline.social_auth.load_extra_data',
-    'API.social_auth_pipeline.create_auth_tokens',
+    'social_core.pipeline.user.user_details',
 )
 
 SOCIAL_AUTH_URL_NAMESPACE = 'social'
