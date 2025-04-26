@@ -12,16 +12,19 @@ logger = logging.getLogger(__name__)
 
 class CustomTokenAuthentication(authentication.BaseAuthentication):
     def authenticate(self, request):
-        # Try to get token from both cookies and headers
-        access_token = (
-            request.COOKIES.get('access_token') or 
-            request.META.get('HTTP_AUTHORIZATION', '').split(' ')[-1]
-        )
-        
+        access_token = request.COOKIES.get('access_token')
         if not access_token:
             return None
 
-        return self.authenticate_credentials(access_token)
+        try:
+            access_hash = hash_token(access_token)
+            user_token = UserToken.objects.select_related('user').get(
+                access_token_hash=access_hash,
+                access_token_expires__gt=timezone.now()
+            )
+            return (user_token.user, None)
+        except UserToken.DoesNotExist:
+            return None
 
     def authenticate_credentials(self, token):
         try:

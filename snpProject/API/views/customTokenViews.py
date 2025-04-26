@@ -123,21 +123,27 @@ class LogoutView(APIView):
 
 class VerifyTokenView(APIView):
     authentication_classes = [CustomTokenAuthentication]
-    permission_classes = [AllowAny]  # Change from IsAuthenticated to AllowAny
+    permission_classes = [AllowAny]
 
     def get(self, request):
-        # Manually check authentication since we're using AllowAny
-        user, _ = CustomTokenAuthentication().authenticate(request)
-        
-        if user is None:
+        try:
+            auth = CustomTokenAuthentication()
+            user_auth_tuple = auth.authenticate(request)
+            if user_auth_tuple is None:
+                return Response({
+                    "status": "invalid",
+                    "is_authenticated": False
+                }, status=status.HTTP_401_UNAUTHORIZED)
+                
+            user, _ = user_auth_tuple
             return Response({
-                "status": "invalid",
-                "is_authenticated": False
-            }, status=status.HTTP_401_UNAUTHORIZED)
-            
-        return Response({
-            "status": "valid",
-            "user_id": user.id,
-            "email": user.email,
-            "is_authenticated": True
-        }, status=status.HTTP_200_OK)
+                "status": "valid",
+                "user_id": user.id,
+                "email": user.email,
+                "is_authenticated": True
+            })
+        except Exception as e:
+            return Response({
+                "status": "error",
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)

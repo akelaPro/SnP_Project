@@ -92,6 +92,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'API.middleware.SocialAuthCookieMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
@@ -186,7 +187,7 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
 ]
 #'https://galerytest.storage.yandexcloud.net' '/media/'
-MEDIA_URL = f'https://galerytest.storage.yandexcloud.net/'
+MEDIA_URL = f'https://galerytest.storage.yandexcloud.net/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 AUTH_USER_MODEL = 'galery.User'
@@ -231,6 +232,7 @@ REST_FRAMEWORK = {
 
 
 AUTHENTICATION_BACKENDS = [
+    'API.authentication.CustomTokenAuthentication',
     'social_core.backends.github.GithubOAuth2',
     'django.contrib.auth.backends.ModelBackend',
     #'API.authentication.EmailAuthBackend',
@@ -290,7 +292,7 @@ SOCIAL_AUTH_GITHUB_SCOPE = ['user:email']
 #SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/auth/github/callback/'
 SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/'  # Перенаправлять на главную страницу
 SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/'
-
+#SOCIAL_AUTH_SESSION_COOKIE = None
 
 SOCIAL_AUTH_GITHUB_SECRET = '08d01c6313d8c93355a28a7d5aa7c647cb26708e'
 SOCIAL_AUTH_GITHUB_CALLBACK_URL = 'http://127.0.0.1:8000/auth/complete/github/'
@@ -305,8 +307,7 @@ SOCIAL_AUTH_PIPELINE = (
     'social_core.pipeline.social_auth.auth_allowed',
     'social_core.pipeline.social_auth.social_user',
     'social_core.pipeline.user.get_username',
-    'social_core.pipeline.user.create_user',
-    'API.social_auth_pipeline.get_or_create_user',  # Оставить только один вызов
+    'API.social_auth_pipeline.get_or_create_user',  # Ваш кастомный пайплайн
     'social_core.pipeline.social_auth.associate_user',
     'social_core.pipeline.social_auth.load_extra_data',
     'social_core.pipeline.user.user_details',

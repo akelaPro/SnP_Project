@@ -35,72 +35,64 @@ def get_or_create_user(strategy, details, backend, user=None, *args, **kwargs):
     if user:
         return {'is_new': False, 'user': user}
 
-    email = details.get('email')
-    github_username = details.get('username')
-    User = strategy.storage.user.user_model()
-
-    # 1. Пытаемся найти существующего пользователя по email
-    if email:
-        try:
-            user = User.objects.get(email=email)
-            # Нашли пользователя - создаем токены и возвращаем его
-            access_token, refresh_token = create_tokens_for_user(user)
-            
-            response = strategy.redirect('/')
-            response.set_cookie('access_token', access_token, 
-                              httponly=True, secure=not settings.DEBUG, 
-                              samesite='Lax', max_age=900)
-            response.set_cookie('refresh_token', refresh_token,
-                              httponly=True, secure=not settings.DEBUG,
-                              samesite='Lax', max_age=604800)
-            
-            return {
-                'is_new': False,
-                'user': user,
-                'response': response
-            }
-        except User.DoesNotExist:
-            pass  # Пользователя с таким email нет
-
-    # 2. Если email не предоставлен или пользователь не найден
-    # Генерируем уникальный username
-    username = github_username
-    if username:
-        counter = 1
-        while User.objects.filter(username=username).exists():
-            username = f"{github_username}_{counter}"
-            counter += 1
-    else:
-        username = f"github_user_{secrets.token_hex(4)}"
-
-    # 3. Создаем нового пользователя (без email если он уже занят)
     try:
-        user = User.objects.create_user(
-            username=username,
-            email=email if email and not User.objects.filter(email=email).exists() else None,
-            password=None
+        email = details.get('email')
+        github_username = details.get('username')
+        User = strategy.storage.user.user_model()
+
+        # Поиск или создание пользователя
+        if email:
+            try:
+                user = User.objects.get(email=email)
+            except User.DoesNotExist:
+                username = github_username or f"github_{secrets.token_hex(4)}"
+                user = User.objects.create_user(
+                    username=username,
+                    email=email,
+                    password=None
+                )
+        else:
+            username = github_username or f"github_{secrets.token_hex(8)}"
+            user = User.objects.create_user(
+                username=username,
+                email=None,
+                password=None
+            )
+
+        # Создание токенов
+        access_token, refresh_token = create_tokens_for_user(user)
+        
+        # Создание ответа с куками
+        response = HttpResponseRedirect('/')
+        response.set_cookie(
+            'access_token', 
+            access_token,
+            httponly=True,
+            secure=not settings.DEBUG,
+            samesite='Lax',
+            max_age=900
         )
-    except IntegrityError:
-        # Если все же возникла ошибка (редкий случай)
-        user = User.objects.create_user(
-            username=f"github_user_{secrets.token_hex(8)}",
-            email=None,
-            password=None
+        response.set_cookie(
+            'refresh_token',
+            refresh_token,
+            httponly=True,
+            secure=not settings.DEBUG,
+            samesite='Lax',
+            max_age=604800
         )
-    
-    # Создаем токены
-    access_token, refresh_token = create_tokens_for_user(user)
-    
-    response = strategy.redirect('/')
-    response.set_cookie('access_token', access_token, 
-                      httponly=True, secure=not settings.DEBUG,
-                      samesite='Lax', max_age=900)
-    response.set_cookie('refresh_token', refresh_token,
-                      httponly=True, secure=not settings.DEBUG,
-                      samesite='Lax', max_age=604800)
-    
-    return {
-        'is_new': True,
-        'user': user,
-        'response': response
-    }
+        
+        # Удаление сессионных куков, если они есть
+        if 'sessionid' in response.cookies:
+            del response.cookies['sessionid']
+        if 'csrftoken' in response.cookies:
+            del response.cookies['csrftoken']
+
+        return {
+            'is_new': True,
+            'user': user,
+            'response': response
+        }
+
+    except Exception as e:
+        logger.error(f"Error in social auth pipeline: {str(e)}")
+        return strategy.redirect(f'/?error=auth_failed&message={str(e)}')
