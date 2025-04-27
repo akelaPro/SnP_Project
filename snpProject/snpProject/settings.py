@@ -187,7 +187,7 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
 ]
 #'https://galerytest.storage.yandexcloud.net' '/media/'
-MEDIA_URL = f'https://galerytest.storage.yandexcloud.net/media/'
+MEDIA_URL = f'https://galerytest.storage.yandexcloud.net/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 AUTH_USER_MODEL = 'galery.User'

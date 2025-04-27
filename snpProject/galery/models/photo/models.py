@@ -5,8 +5,17 @@ import os
 from django.utils import timezone
 from snpProject import settings
 import logging
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
 
 logger = logging.getLogger(__name__)
+
+def upload_to(instance, filename):
+    """
+    Функция для формирования пути сохранения файла на основе ID.
+    Этот путь используется только после того, как ID будет известен.
+    """
+    return f'photos/{instance.pk}/{filename}'
 
 class Photo(models.Model):
     STATUS_CHOICES = (
@@ -18,7 +27,7 @@ class Photo(models.Model):
 
     title = models.CharField(max_length=255, verbose_name='Заголовок')
     description = models.TextField(verbose_name='Описание')
-    image = models.ImageField(upload_to='photos/%Y/%m/%d/', default=None, blank=True, null=False, verbose_name='Фотография')
+    image = models.ImageField(upload_to='temp_photos/', default=None, blank=True, null=False, verbose_name='Фотография') # Временно сохраняем в temp_photos
     published_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата публикации')
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='photos', verbose_name='Автор', db_index=True)
     deleted_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата удаления', db_index=True)
@@ -45,19 +54,35 @@ class Photo(models.Model):
         verbose_name_plural = 'Фотографии'
 
     def save(self, *args, **kwargs):
-        if self.pk:  # Если объект уже существует
+        if self.pk is None:  # Новый объект
+            # 1. Получаем временное имя файла
+            temp_image = self.image
+            self.image = None  # Очищаем поле image, чтобы не сохранять его сейчас
+            super().save(*args, **kwargs)  # Сохраняем, чтобы получить ID (pk)
+            # 2. Генерируем новое имя файла с pk
+            new_filename = upload_to(self, temp_image.name)
+            # 3. Читаем содержимое файла из временного хранилища
+            if hasattr(temp_image, 'read'):
+                file_content = temp_image.read()
+            else:
+                # Если temp_image не имеет метода read, обрабатываем его как FilePathField или что-то подобное
+                with open(temp_image.path, 'rb') as f:
+                    file_content = f.read()
+            # 4. Сохраняем файл в нужное место с новым именем
+            self.image.name = new_filename
+            default_storage.save(self.image.name, ContentFile(file_content))
+            # 5. Сохраняем модель еще раз, чтобы обновить поле image
+            super().save(update_fields=['image'])
+
+            # Удаляем временный файл (необязательно, зависит от вашей конфигурации)
+            default_storage.delete(temp_image.name)
+        else:  # Существующий объект
             old = Photo.objects.get(pk=self.pk)
-            if old.image != self.image:  # Если изображение изменилось
-            # Сохраняем старое изображение
+            if old.image != self.image:
                 if old.image:
                     self.old_image = old.image
-            if old.moderation != self.moderation or old.deleted_at != self.deleted_at:
-                logger.info(
-                    f"Изменение статуса фото {self.id}: "
-                    f"moderation {old.moderation}->{self.moderation}, "
-                    f"deleted_at {old.deleted_at}->{self.deleted_at}"
-                )
-        super().save(*args, **kwargs) 
+            super().save(*args, **kwargs)
+
 
 @receiver(post_save, sender=Photo)
 def handle_photo_moderation(sender, instance, **kwargs):
