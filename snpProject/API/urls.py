@@ -23,6 +23,8 @@ urlpatterns = [
     path('user/profile/update/', UpdateUserProfileAPIView.as_view(), name='update_user_profile'),
     path('user/profile/', UserProfileAPIView.as_view(), name='user_profile'),
     path('user/photos/', UserLisPhoto.as_view(), name='user_photos'),
+    path('password-reset/request/', PasswordResetRequestView.as_view(), name='password-reset-request'),
+    path('password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
 ]
 
 if settings.DEBUG:

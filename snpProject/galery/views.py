@@ -26,3 +26,9 @@ class CreatePhotoTemlate(TemplateView):
 class UserProfileView(View):
     def get(self, request):
         return render(request, 'galery/profile.html', {})
+    
+class Password_reset_request(TemplateView):
+    template_name = 'galery/password_reset_request.html'
+
+class Password_reset_confirm(TemplateView):
+    template_name = 'galery/password_reset_confirm.html'

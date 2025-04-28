@@ -20,6 +20,8 @@ class User(AbstractUser ):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата публикации')
     avatar = models.ImageField(upload_to='avatars/', blank=True, null=True, default='avatars/default_avatar.png')
     updated_at = models.DateTimeField(auto_now=True)
+    password_reset_token_hash = models.CharField(max_length=64, null=True, blank=True)
+    password_reset_token_expires = models.DateTimeField(null=True, blank=True)
 
     avatar_thumbnail = ImageSpecField(
         source='avatar',

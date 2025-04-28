@@ -12,3 +12,5 @@ from API.services.RefreshService import RefreshService
 from API.services.RestorePhotoService import RestorePhotoService
 from API.services.UpdatePhotoService import UpdatePhotoService
 from API.services.UpdateUserProfileService import UpdateUserProfileService
+from API.services.PasswordResetConfirmService import PasswordResetConfirmService
+from API.services.PasswordResetRequestService import PasswordResetRequestService

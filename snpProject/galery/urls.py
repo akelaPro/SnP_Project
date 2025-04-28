@@ -13,6 +13,8 @@ urlpatterns = [
     path('login/', views.LoginTemplateView.as_view(), name='login_template'),
     path('createphoto', views.CreatePhotoTemlate.as_view(), name='create_photo'),
     path('register/', views.RegistrationTemplateView.as_view(), name='registration_template'),
+    path('password-reset/', views.Password_reset_request.as_view(), name='password-reset'),
+    path('password-reset/confirm/', views.Password_reset_confirm.as_view(), name='password-reset-confirm'),
 ]
 
 if settings.DEBUG:

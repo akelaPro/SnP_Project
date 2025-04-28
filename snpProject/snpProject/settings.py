@@ -333,3 +333,8 @@ CORS_ALLOWED_ORIGINS = [
 CORS_EXPOSE_HEADERS = ['Content-Type', 'X-CSRFToken']
 
 
+# Настройки для сброса пароля
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://127.0.0.1:8000')
+PASSWORD_RESET_TIMEOUT = 3600  # 1 час в секундах
+
+
