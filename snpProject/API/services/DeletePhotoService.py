@@ -54,7 +54,7 @@ class DeletePhotoService(BaseService):
             locked_photo.save()
 
             # Create delete task
-            task = delete_photo.apply_async(args=(locked_photo.id,), countdown=60)
+            task = delete_photo.apply_async(args=(locked_photo.id,), countdown=86400)
             locked_photo.delete_task_id = task.id
             locked_photo.save()
 

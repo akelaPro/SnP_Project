@@ -147,14 +147,17 @@ $(document).ready(function() {
                     $('#photo-author-avatar').attr('src', photo.author.avatar || '');
                     $('#photo-description').text(photo.description);
                     $('#votes-count').text(photo.votes.length || 0);
-
+    
                     $('#edit-title').val(photo.title);
                     $('#edit-description').val(photo.description);
-
+    
                     window.canEdit = photo.can_edit;
-
+    
                     if (window.canEdit) {
-                        if (photo.moderation === '1' && photo.deleted_at) {
+                        // Изменяем проверку на удаление - приводим moderation к строке для сравнения
+                        const isDeleted = String(photo.moderation) === '1' && photo.deleted_at;
+                        
+                        if (isDeleted) {
                             deletePhotoButton.hide();
                             restorePhotoButton.show();
                         } else {
@@ -167,7 +170,7 @@ $(document).ready(function() {
                         photoActions.hide();
                         $('#edit-photo-button').hide();
                     }
-
+    
                     if (photo.has_liked === true) {
                         $('#like-button').hide();
                         const userVoteId = photo.votes.find(vote => vote);
@@ -176,7 +179,7 @@ $(document).ready(function() {
                         $('#like-button').show();
                         $('#unlike-button').hide().data('voteId', null);
                     }
-
+    
                     resolve(photo);
                 },
                 error: function(xhr) {

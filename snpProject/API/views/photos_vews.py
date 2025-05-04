@@ -27,13 +27,17 @@ class PhotoViewSet(viewsets.ModelViewSet):
     ordering = ['-published_at']
 
     def get_queryset(self):
+        # Получаем параметр include_deleted из запроса
+        include_deleted = self.request.query_params.get('include_deleted', 'false').lower() == 'true'
+        
         # Получаем базовый queryset из сервиса
         base_queryset = PhotoListService().execute({
-            'action': self.action
+            'action': self.action,
+            'include_deleted': include_deleted  # Передаем параметр в сервис
         })
 
         # Применяем стандартные DRF фильтры (поиск и сортировка)
-        for backend_class in self.filter_backends:  # Итерируемся по классам фильтров
+        for backend_class in self.filter_backends:
             base_queryset = backend_class().filter_queryset(self.request, base_queryset, self)
 
         return base_queryset
