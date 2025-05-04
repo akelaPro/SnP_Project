@@ -1,12 +1,10 @@
 $(document).ready(function() {
-    const token = localStorage.getItem('accessToken');
-    if (!token) {
-        alert("Пожалуйста, войдите в систему, чтобы видеть уведомления.");
-        window.location.href = '/login/'; 
-        return;
-    }
+    setupWebSocket();
+});
 
-    const socket = new WebSocket(`ws://127.0.0.1:8000/ws/notifications/?token=${token}`);
+function setupWebSocket() {
+    // Токен теперь передается через cookies, поэтому не нужно вручную добавлять его в URL
+    const socket = new WebSocket('ws://' + window.location.host + '/ws/notifications/');
 
     socket.onmessage = function(e) {
         const data = JSON.parse(e.data);
@@ -21,17 +19,21 @@ $(document).ready(function() {
         console.log("Соединение WebSocket закрыто.");
     };
 
-    function addNotification(data) {
-        const notificationList = $('#notification-list');
-        const newNotification = `
-            <li class="notification-item" data-id="${data.id}">
-                ${data.message} - ${data.created_at}
-                <button class="close-notification" onclick="closeNotification(this)">×</button>
-            </li>`;
-        notificationList.append(newNotification);
-    }
-
-    window.closeNotification = function(button) {
-        $(button).parent().remove(); 
+    socket.onerror = function(e) {
+        console.error("Ошибка WebSocket:", e);
     };
-});
+}
+
+function addNotification(data) {
+    const notificationList = $('#notification-list');
+    const newNotification = `
+        <li class="notification-item" data-id="${data.id}">
+            ${data.message} - ${data.created_at}
+            <button class="close-notification" onclick="closeNotification(this)">×</button>
+        </li>`;
+    notificationList.prepend(newNotification); // Добавляем в начало списка
+}
+
+window.closeNotification = function(button) {
+    $(button).parent().remove();
+};

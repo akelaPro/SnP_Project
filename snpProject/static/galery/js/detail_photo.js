@@ -219,6 +219,34 @@ $(document).ready(function() {
         });
     });
 
+
+    commentForm.on('submit', function(e) {
+        e.preventDefault(); // Предотвращаем стандартную отправку формы
+        
+        const formData = {
+            text: commentForm.find('textarea[name="text"]').val(),
+            photo: photoId
+        };
+        
+        $.ajax({
+            url: '/api/comments/',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(formData),
+            headers: getAuthHeaders(),
+            success: function() {
+                // Очищаем поле ввода
+                commentForm.find('textarea').val('');
+                // Обновляем список комментариев
+                loadInitialComments();
+            },
+            error: function(xhr) {
+                alert('Ошибка при добавлении комментария: ' + (xhr.responseJSON?.detail || xhr.statusText));
+            }
+        });
+    });
+
+
     // Система комментариев
     function loadInitialComments() {
         return new Promise((resolve, reject) => {
@@ -398,6 +426,36 @@ $(document).ready(function() {
             }
         });
     });
+
+
+    // Обработчик для кнопки "Показать все комментарии"
+$('#show-all-comments-button').on('click', function() {
+    loadAllComments();
+});
+
+// Обработчик для кнопки "Скрыть все комментарии"
+$('#hide-all-comments-button').on('click', function() {
+    loadInitialComments();
+    hideAllCommentsButton.hide();
+    showAllCommentsButton.show();
+});
+
+// Обработчик для кнопок "Показать/Скрыть ответы"
+$(document).on('click', '.toggle-replies-button', function() {
+    const commentId = $(this).data('comment-id');
+    const repliesContainer = $(`#replies-${commentId}`);
+    const isVisible = repliesContainer.is(':visible');
+    
+    // Переключаем видимость
+    repliesContainer.toggle();
+    
+    // Меняем текст кнопки
+    $(this).text(isVisible ? 'Показать ответы' : 'Скрыть ответы');
+    
+    // Сохраняем состояние в localStorage
+    localStorage.setItem(`repliesVisible-${commentId}`, !isVisible);
+});
+
 
     // Лайки
     $('#like-button').click(function() {
