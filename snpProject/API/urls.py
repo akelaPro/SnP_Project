@@ -6,6 +6,7 @@ from API.views import *
 
 
 
+
 router = routers.DefaultRouter()
 router.register(r'photos', PhotoViewSet, basename='photo')  # Убрал начальный /
 router.register(r'comments', CommentViewSet, basename='comment')
@@ -18,6 +19,7 @@ urlpatterns = [
     path('register/', RegistrationAPIView.as_view(), name='register'),  # Убрал начальный /
     path('auth/verify/', VerifyTokenView.as_view(), name='verify-token'),
     path('login/', LoginView.as_view(), name='login'),
+    path('notifications/', NotificationView.as_view(), name='api_notifications'),
     path('refresh/', RefreshView.as_view(), name='refresh'),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('user/profile/update/', UpdateUserProfileAPIView.as_view(), name='update_user_profile'),

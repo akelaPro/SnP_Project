@@ -14,7 +14,8 @@ class UserLisPhoto(ListAPIView):
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields = ['title', 'author__username', 'description']
     ordering_fields = ['votes_count', 'published_at', 'comments_count', 'moderation']
-    ordering = ['-published_at'] 
+    ordering = ['-published_at']
+    queryset = Photo.objects.all()
 
 
 
