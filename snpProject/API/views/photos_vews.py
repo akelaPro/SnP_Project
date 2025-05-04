@@ -42,6 +42,11 @@ class PhotoViewSet(viewsets.ModelViewSet):
 
         return base_queryset
 
+    
+    def list(self, request, *args, **kwargs):
+        print("Request params:", request.query_params)
+        return super().list(request, *args, **kwargs)
+
 
     def perform_create(self, serializer):
         photo = CreatePhotoService().execute({

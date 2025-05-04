@@ -34,8 +34,8 @@ STORAGES = {
 
 AWS_ACCESS_KEY_ID = config('YANDEX_ID_CLOUD_SERVICE')  # Из JSON-ключа
 AWS_SECRET_ACCESS_KEY = config('YANDEX_SECRET_KEY_CLOUD_SERVICE')
-AWS_STORAGE_BUCKET_NAME = 'galerytest'
-AWS_S3_ENDPOINT_URL = 'https://storage.yandexcloud.net'
+AWS_STORAGE_BUCKET_NAME = config('YANDEX_BUCKET_NAME')
+AWS_S3_ENDPOINT_URL = config('AWS_S3_ENDPOINT_URL')
 AWS_S3_REGION_NAME = 'ru-central1'  # Или другой регион, если используете
 AWS_DEFAULT_ACL = 'public-read'  # Для публичного доступа к файлам
 AWS_QUERYSTRING_AUTH = False  # Отключаем подписанные URL (если не нужны)
@@ -187,7 +187,7 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
 ]
 #'https://galerytest.storage.yandexcloud.net' '/media/'
-MEDIA_URL = f'https://galerytest.storage.yandexcloud.net/'
+MEDIA_URL = f'https://{AWS_STORAGE_BUCKET_NAME}.storage.yandexcloud.net/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 AUTH_USER_MODEL = 'galery.User'
@@ -294,9 +294,9 @@ SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/'  # Перенаправлять на гла
 SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/'
 #SOCIAL_AUTH_SESSION_COOKIE = None
 
-SOCIAL_AUTH_GITHUB_SECRET = '08d01c6313d8c93355a28a7d5aa7c647cb26708e'
-SOCIAL_AUTH_GITHUB_CALLBACK_URL = 'http://127.0.0.1:8000/auth/complete/github/'
-SOCIAL_AUTH_GITHUB_KEY = 'Ov23liCCzAfGz8xbLCF2'
+SOCIAL_AUTH_GITHUB_KEY = config('SOCIAL_AUTH_GITHUB_KEY')
+SOCIAL_AUTH_GITHUB_SECRET = config('SOCIAL_AUTH_GITHUB_SECRET')
+SOCIAL_AUTH_GITHUB_CALLBACK_URL = config('SOCIAL_AUTH_GITHUB_CALLBACK_URL')
 
 
 # Для работы с Daphne и ASGI

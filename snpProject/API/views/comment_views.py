@@ -13,6 +13,13 @@ class CommentViewSet(viewsets.ModelViewSet):
     serializer_class = CommentSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        photo_id = self.request.query_params.get('photo')
+        if photo_id:
+            queryset = queryset.filter(photo_id=photo_id)
+        return queryset
+
     def perform_create(self, serializer):
         comment = CreateCommentService.execute({
             'user': self.request.user,
