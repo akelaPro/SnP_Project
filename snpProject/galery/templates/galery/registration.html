@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2>Регистрация</h2>
+    <form id="registrationForm" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="email" class="form-label">Email</label>
+            <input type="email" class="form-control" id="email" name="email" required>
+        </div>
+        <div class="mb-3">
+            <label for="password" class="form-label">Пароль</label>
+            <input type="password" class="form-control" id="password" name="password" required>
+        </div>
+        <div class="mb-3">
+            <label for="password2" class="form-label">Повторите пароль</label>
+            <input type="password" class="form-control" id="password2" name="password2" required>
+        </div>
+        <div class="mb-3">
+            <label for="avatar" class="form-label">Аватар (необязательно)</label>
+            <input type="file" class="form-control" id="avatar" name="avatar" accept="image/*">
+        </div>
+        <button type="submit" class="btn btn-primary">Зарегистрироваться</button>
+        <div id="registrationMessage" class="mt-3"></div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+$(document).ready(function() {
+    $('#registrationForm').submit(function(e) {
+        e.preventDefault();
+
+        const formData = new FormData();
+        const email = $('#email').val();
+        const password = $('#password').val();
+        const password2 = $('#password2').val();
+        const avatar = $('#avatar')[0].files[0];
+
+        // Проверяем, что значения получены и добавляются в formData
+        console.log('Email:', email);
+        console.log('Password:', password);
+        console.log('Password2:', password2);
+
+        formData.append('email', email);
+        formData.append('password', password);
+        formData.append('password2', password2);
+
+        if (avatar) {
+            console.log('Avatar file:', avatar); // Log avatar file
+            formData.append('avatar', avatar);
+        }
+
+        // Log FormData entries
+        for (var pair of formData.entries()) {
+            console.log(pair[0]+ ', ' + pair[1]); 
+        }
+
+        $.ajax({
+            url: '/api/register/',
+            method: 'POST',
+            data: formData, // Исправлено здесь
+            processData: false,
+            contentType: false,
+            headers: {
+                'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val()
+            },
+            success: function(data) {
+                console.log('Registration success:', data);
+                window.location.href = "{% url 'galery:login_template' %}";
+                $('#registrationMessage').html('<div class="alert alert-success">Регистрация прошла успешно!</div>');
+                // Очищаем форму (необязательно)
+                $('#registrationForm')[0].reset();
+                // Выполняем вход в систему после успешной регистрации
+                loginUser (email, password);
+                window.location.href = "{% url 'galery:login_template' %}";
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                console.error('Ошибка при регистрации:', jqXHR);
+                let errorMessage = 'Ошибка при регистрации: ';
+                try {
+                    const errors = jqXHR.responseJSON;
+                    console.log('Errors from server:', errors);  // Log server errors
+                    for (const field in errors) {
+                        errorMessage += `${field}: ${errors[field].join(', ')} `;
+                    }
+                    
+                } catch (e) {
+                    errorMessage += jqXHR.responseText;
+                }
+                $('#registrationMessage').html('<div class="alert alert-danger">' + errorMessage + '</div>');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
+

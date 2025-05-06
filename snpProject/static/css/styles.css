@@ -1,0 +1,13 @@
+body {
+    background-image: url('https://galerytest.storage.yandexcloud.net/media/images/background.jpg');
+    background-size: cover; 
+    background-position: center; 
+    background-repeat: no-repeat; 
+    color: #fff; 
+}
+
+.container {
+    background-color: rgba(0, 0, 0, 0.7); 
+    padding: 20px; 
+    border-radius: 10px; 
+}

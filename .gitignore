@@ -1,0 +1,31 @@
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.db
+*.sqlite3
+
+# Django
+*.log
+*.pot
+*.py[cod]
+*.sqlite3
+media/
+!media/avatars/default_avatr/default_avatar.png
+staticfiles/
+.env
+*.env
+
+# IDEs
+.idea/
+.vscode/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Others
+.DS_Store
+Thumbs.db
+.env
+.uploads/git
+.logs

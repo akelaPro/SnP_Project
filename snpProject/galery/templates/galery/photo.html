@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 id="photo-title"></h1>
+    <img id="photo-image" class="img-fluid" style="max-height: 400px; object-fit: cover;">
+    <p id="photo-description"></p>
+    <p>Автор: <span id="photo-author"></span></p>
+    <img id="photo-author-avatar" class="rounded-circle" style="width: 50px; height: 50px;">
+
+    <!-- Форма для редактирования фотографии -->
+
+
+    <div id="photo-actions" style="display: none;">
+        <button id="delete-photo-button" class="btn btn-danger">Удалить</button>
+        <button id="restore-photo-button" class="btn btn-success" style="display: none;">Восстановить</button>
+        <button id="edit-photo-button" class="btn btn-warning">Редактировать</button>
+    </div>
+
+    <!-- Форма для редактирования фотографии -->
+    <form id="edit-photo-form" style="display: none;" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="edit-title">Название:</label>
+            <input type="text" id="edit-title" name="title" class="form-control">
+        </div>
+        <div class="form-group">
+            <label for="edit-description">Описание:</label>
+            <textarea id="edit-description" name="description" class="form-control"></textarea>
+        </div>
+        <div class="form-group">
+            <label for="image-upload">Фотография:</label>
+            <input type="file" id="image-upload" name="image" class="form-control-file">
+        </div>
+        <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+    </form>
+
+    <h3>Комментарии:</h3>
+    <ul class="list-unstyled" id="comments-list">
+    </ul>
+
+    <button id="show-all-comments-button" style="display:none;" class="btn btn-secondary">Показать все комментарии</button>
+    <button id="hide-all-comments-button" style="display:none;" class="btn btn-secondary">Скрыть все комментарии</button>
+
+    <div id="comment-section">
+        <form id="comment-form" class="mb-4" style="display: none;">
+            {% csrf_token %}
+            <div class="form-group">
+                <textarea name="text" class="form-control" required placeholder="Добавьте комментарий..."></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Добавить комментарий</button>
+        </form>
+        <p id="login-prompt-comment">Чтобы оставить комментарий, пожалуйста, <a
+                href="{% url 'galery:login_template' %}">войдите</a> или <a
+                href="{% url 'galery:registration_template' %}">зарегистрируйтесь</a>.</p>
+    </div>
+
+    <h3>Лайки: <span id="votes-count">0</span></h3>
+    <div id="like-section">
+        <button id="like-button" class="btn btn-success" style="display: none;">Поставить лайк</button>
+        <button id="unlike-button" class="btn btn-danger" style="display:none;">Убрать лайк</button>
+        <p id="login-prompt-like">Чтобы поставить лайк, пожалуйста, <a
+                href="{% url 'galery:login_template' %}">войдите</a> или <a
+                href="{% url 'galery:registration_template' %}">зарегистрируйтесь</a>.</p>
+    </div>
+
+    <!-- Hidden element to store the login URL -->
+    <div id="login-data" data-login-url="{% url 'galery:login_template' %}"></div>
+</div>
+
+<script src="{% static 'galery/js/detail_photo.js' %}"></script>
+{% endblock %}

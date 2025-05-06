@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{{ subject }}</title>  <!-- Используем subject -->
+</head>
+<body>
+    <h1>{{ subject }}</h1> <!-- Используем subject -->
+    <p>{{ message }}</p> <!-- Используем message -->
+    {% if photo_title %}
+        <p>Фотография: {{ photo_title }}</p> <!-- Используем photo_title -->
+    {% endif %}
+    {% if photo_id %}
+        <p>ID фотографии: {{ photo_id }}</p> <!-- Используем photo_id -->
+        <p>Ссылка на фотографию: <a href="{{ site_url }}/photos/{{ photo_id }}/">Посмотреть</a></p>
+    {% endif %}
+    <p>Перейти на сайт: <a href="{{ site_url }}">Перейти</a></p>
+</body>
+</html>

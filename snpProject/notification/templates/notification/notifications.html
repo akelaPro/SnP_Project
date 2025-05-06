@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+
+{% load static %}
+{% block content %}
+    <h1>Уведомления</h1>
+    <ul id="notification-list">
+        <!-- Здесь будут динамически добавляться уведомления -->
+    </ul>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'notification/js/notifications.js' %}"></script>
+
+{% endblock %}

@@ -1,0 +1,125 @@
+{# templates/add_photo.html #}
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1>Добавить новую фотографию</h1>
+    <form id="upload-form" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="title">Заголовок:</label>
+            <input type="text" class="form-control" id="title" name="title" required>
+        </div>
+        <div class="form-group">
+            <label for="description">Описание:</label>
+            <textarea class="form-control" id="description" name="description" rows="3" required></textarea>
+        </div>
+        <div class="form-group">
+            <label for="image">Фотография:</label>
+            <input type="file" class="form-control-file" id="image" name="image" accept="image/*" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Загрузить</button>
+        <div id="upload-message" class="mt-3"></div>
+    </form>
+    <div id="login-prompt" class="alert alert-warning" style="display: none;">
+        Чтобы загружать фотографии, пожалуйста, <a href="{% url 'galery:login_template' %}">войдите</a> или <a href="{% url 'galery:registration_template' %}">зарегистрируйтесь</a>.
+    </div>
+</div>
+
+<!-- Скрытый элемент для хранения URL логина -->
+<div id="login-data" data-login-url="{% url 'galery:login_template' %}" style="display: none;"></div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    $(document).ready(function() {
+        const loginUrl = $('#login-data').data('login-url');
+        const uploadForm = $('#upload-form');
+        const loginPrompt = $('#login-prompt');
+
+        // Проверка аутентификации при загрузке страницы
+        checkAuth()
+            .then(isAuthenticated => {
+                if (!isAuthenticated) {
+                    uploadForm.hide();
+                    loginPrompt.show();
+                }
+            })
+            .catch(error => {
+                console.error("Ошибка проверки аутентификации:", error);
+            });
+
+        // Функция проверки аутентификации
+        function checkAuth() {
+            return new Promise((resolve, reject) => {
+                $.ajax({
+                    url: '/api/auth/verify/',
+                    method: 'GET',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    success: function(response) {
+                        resolve(response.is_authenticated);
+                    },
+                    error: function(xhr) {
+                        if (xhr.status === 401) {
+                            resolve(false);
+                        } else {
+                            reject(xhr);
+                        }
+                    }
+                });
+            });
+        }
+
+        // Обработчик отправки формы
+        uploadForm.submit(function(event) {
+            event.preventDefault();
+            
+            // Проверяем аутентификацию перед отправкой
+            checkAuth()
+                .then(isAuthenticated => {
+                    if (!isAuthenticated) {
+                        window.location.href = loginUrl;
+                        return Promise.reject("Пользователь не аутентифицирован");
+                    }
+                    
+                    const formData = new FormData(this);
+                    return $.ajax({
+                        url: '/api/photos/',
+                        type: 'POST',
+                        data: formData,
+                        contentType: false,
+                        processData: false,
+                        headers: {
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        }
+                    });
+                })
+                .then(response => {
+                    $("#upload-message").html(
+                        '<div class="alert alert-success">Фотография успешно загружена!</div>'
+                    );
+                    uploadForm[0].reset();
+                })
+                .catch(error => {
+                    if (error !== "Пользователь не аутентифицирован") {
+                        console.error("Ошибка загрузки:", error);
+                        $("#upload-message").html(
+                            '<div class="alert alert-danger">Ошибка загрузки: ' + 
+                            (error.responseJSON?.detail || error.statusText || "Неизвестная ошибка") + 
+                            '</div>'
+                        );
+                    }
+                });
+        });
+
+        // Обработчик ошибок AJAX для обновления токена
+        $(document).ajaxError(function(event, jqXHR, ajaxSettings, thrownError) {
+            if (jqXHR.status === 401 && !ajaxSettings._retry) {
+                // Перенаправляем на страницу входа при ошибке аутентификации
+                window.location.href = loginUrl;
+            }
+        });
+    });
+</script>
+{% endblock %}
