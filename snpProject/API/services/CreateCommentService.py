@@ -27,16 +27,3 @@ class CreateCommentService(BaseService):
             )
 
         return comment
-
-class DeleteCommentService(BaseService):
-    def process(self):
-        comment = self.data['comment']
-        user = self.data['user']
-        
-        if comment.author != user:
-            raise exceptions.PermissionDenied("Вы не можете удалить чужой комментарий.")
-        
-        if not comment.can_delete():
-            raise exceptions.ValidationError("Нельзя удалить комментарий с ответами.")
-            
-        comment.delete()

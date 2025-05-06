@@ -4,36 +4,57 @@
 <h1 class="mb-4">Галерея Фотографий</h1>
 
 <div id="photo-list" class="row g-4"></div>
+<div id="login-prompt" class="alert alert-info mt-4" style="display: none;">
+    Чтобы видеть все фотографии, пожалуйста, <a href="{% url 'galery:login_template' %}">войдите</a> или <a href="{% url 'galery:registration_template' %}">зарегистрируйтесь</a>.
+</div>
+
+<!-- Скрытый элемент для хранения URL логина -->
+<div id="login-data" data-login-url="{% url 'galery:login_template' %}" style="display: none;"></div>
 
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
-    let accessToken = localStorage.getItem('accessToken');
-    let refreshTokenValue = localStorage.getItem('refreshToken'); 
-    function loadPhotos(search = '', ordering = '') {
-        const baseUrl = '/api/photos/';
-        let url = baseUrl + '?';
-        let params = [];
-        if (search) {
-            params.push('search=' + search);
-        }
-         if (ordering) {
-            params.push('ordering=' + ordering);
+    $(document).ready(function() {
+        updateAuthUI(); // Инициализация UI
+
+        // Функция загрузки фотографий (с параметрами поиска и сортировки)
+        function loadPhotos(search = '', ordering = '-published_at') {
+            const baseUrl = '/api/photos/';
+            const params = new URLSearchParams();
+
+            if (search) {
+                params.append('search', search);
+            }
+            if (ordering) {
+                params.append('ordering', ordering);
+            }
+
+            const url = baseUrl + '?' + params.toString();
+
+            $.ajax({
+                url: url,
+                method: 'GET',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken') //  Теперь получаем токен из куки
+                },
+                success: function(data) {
+                    renderPhotos(data);
+                },
+                error: function(xhr) {
+                    console.error('Ошибка загрузки данных:', xhr);
+                    // Обработка ошибок загрузки (например, сообщение об ошибке)
+                    $('#photo-list').html('<div class="col-12"><p class="text-center text-danger">Ошибка загрузки данных</p></div>');
+                }
+            });
         }
 
-        if (params.length > 0) {
-             url += params.join('&');
-        }
-
-        $.ajax({
-            url: url,
-            method: 'GET',
-            success: function(data) {
-                let html = '';
-                if (Array.isArray(data)) {
-                    data.forEach(photo => {
-                        html += `
+        // Функция отрисовки фотографий (остается без изменений)
+        function renderPhotos(photos) {
+            let html = '';
+            if (Array.isArray(photos)) {
+                photos.forEach(photo => {
+                    html += `
                         <div class="col-12 col-md-6 col-lg-4 col-xl-3">
                             <div class="photo card h-100 shadow-sm">
                                 <a href="photo/${photo.id}/" class="text-decoration-none text-dark">
@@ -44,7 +65,7 @@
                                     <div class="card-body">
                                         <h5 class="card-title fs-6 mb-2">${photo.title}</h5>
                                         <div class="d-flex align-items-center mb-3">
-                                            <img src="${photo.author.avatar || '/static/img/default-avatar.png'}"
+                                            <img src="${photo.author.avatar || '/static/images/default_avatar.png'}"
                                                  class="rounded-circle me-2"
                                                  style="width: 30px; height: 30px; object-fit: cover;"
                                                  alt="${photo.author.username}">
@@ -55,14 +76,11 @@
                                                 <i class="bi bi-heart-fill text-danger me-1"></i>
                                                 <span class="fw-medium">${photo.votes_count}</span>
                                             </span>
-
                                             <span class="mx-2">|</span>
-
                                             <span class="d-flex align-items-center" title="Комментарии">
                                                 <i class="bi bi-chat-left-text-fill text-primary me-1"></i>
                                                 <span class="fw-medium">${photo.comments_count}</span>
                                             </span>
-
                                             <span class="d-flex align-items-center" title="Дата публикации">
                                                 <i class="bi bi-clock-fill text-secondary me-1"></i>
                                                 <span>${new Date(photo.published_at).toLocaleDateString('ru-RU')}</span>
@@ -72,18 +90,27 @@
                                 </a>
                             </div>
                         </div>`;
-                    });
-                }
-                $('#photo-list').html(html || '<div class="col-12"><p class="text-center">Фотографии не найдены</p></div>');
-            },
-            error: function() {
-                $('#photo-list').html('<div class="col-12"><p class="text-center text-danger">Ошибка загрузки данных</p></div>');
+                });
             }
+            $('#photo-list').html(html || '<div class="col-12"><p class="text-center">Фотографии не найдены</p></div>');
+        }
+        
+        // Обработчик формы поиска
+        $('#search-form').on('submit', function(e) {
+            e.preventDefault(); // Предотвращаем перезагрузку страницы
+            const search = $('#search-input').val().trim();
+            const ordering = $('#sort-select').val();
+            loadPhotos(search, ordering);
         });
-    }
 
-    $(document).ready(function() {
-        loadPhotos();
+        // Обработчик изменения сортировки
+        $('#sort-select').on('change', function() {
+            const search = $('#search-input').val().trim();
+            const ordering = $(this).val();
+            loadPhotos(search, ordering);
+        });
+        loadPhotos(); // Загрузка фотографий по умолчанию при загрузке страницы
+
     });
 </script>
 {% endblock %}

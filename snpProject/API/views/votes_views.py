@@ -1,7 +1,7 @@
 from rest_framework.response import Response
 from rest_framework import status
 
-from API.services.vote import CreateVoteService
+from API.services import *
 from galery.models import Vote
 from API.serializers import *
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
@@ -15,14 +15,12 @@ class VoteViewSet(viewsets.ModelViewSet):
     serializer_class = VoteSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
 
-    @extend_schema(
-        description="Create a vote for a photo.",
-        request=VoteSerializer,
-        responses={201: VoteSerializer, 400: {'description': 'Bad request'}},
-    )
     def create(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
-            return Response({'detail': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response(
+                {'detail': 'Требуется авторизация'}, 
+                status=status.HTTP_401_UNAUTHORIZED
+            )
             
         try:
             vote = CreateVoteService.execute({
@@ -31,5 +29,10 @@ class VoteViewSet(viewsets.ModelViewSet):
             })
             serializer = self.get_serializer(vote)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+        except exceptions.ValidationError as e:
+            return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'detail': 'Произошла ошибка при обработке запроса'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

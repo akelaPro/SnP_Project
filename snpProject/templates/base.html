@@ -14,21 +14,20 @@
     <!-- Скрипты -->
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 </head>
+
 <body class="bg-light">
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
-            <!-- Остальное содержимое навигации как в предыдущем примере -->
+            <a class="navbar-brand" href="{% url 'galery:home' %}">Фотогалерея</a>
 
             <div class="collapse navbar-collapse" id="navbarContent">
                 <div class="d-flex flex-column flex-lg-row w-100 align-items-lg-center">
                     <!-- Блок поиска и сортировки -->
                     <div class="d-flex flex-grow-1 my-2 my-lg-0">
                         <form class="d-flex flex-grow-1 me-2" id="search-form">
-                            <input type="text"
-                                   class="form-control"
-                                   id="search-input"
+                            <input type="text" class="form-control" id="search-input"
                                    placeholder="Поиск по названию, автору или описанию">
-                            <button type="submit" class="btn btn-primary">Найти</button>  <!-- Добавлена кнопка "Найти" -->
+                            <button type="submit" class="btn btn-primary">Найти</button>
                         </form>
 
                         <select class="form-select" id="sort-select" style="width: 220px;">
@@ -39,7 +38,9 @@
                     </div>
 
                     <!-- Навигационные ссылки -->
-                    <ul class="navbar-nav ms-lg-3" id="auth-links"></ul>
+                    <ul class="navbar-nav ms-lg-3" id="auth-links">
+                        <!-- Сюда будут вставлены ссылки через JS -->
+                    </ul>
                 </div>
             </div>
         </div>
@@ -49,19 +50,37 @@
         {% block content %}{% endblock %}
     </main>
 
-    <!-- Восстановленные скрипты -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Обработчик аутентификации
-        $(document).ready(function() {
-            const accessToken = localStorage.getItem('accessToken');
-            const refreshToken = localStorage.getItem('refreshToken');
-            console.log("Initial accessToken from localStorage:", accessToken);  // ADDED
-            console.log("Initial refreshToken from localStorage:", refreshToken); // Получаем refresh token
-            const authLinks = $('#auth-links');
+        // Глобальный флаг для отслеживания состояния аутентификации
+        let authChecked = false;
 
-            const updateAuthUI = () => {
-                if (accessToken) {
+        // Проверка аутентификации
+        async function checkAuth() {
+            try {
+                const response = await $.ajax({
+                    url: '/api/auth/verify/',
+                    method: 'GET',
+                    xhrFields: { withCredentials: true }
+                });
+                return { authenticated: true, user: response };
+            } catch (error) {
+                console.log('Auth verify failed:', error);
+                return { authenticated: false };
+            }
+        }
+
+        // Обновление UI в зависимости от статуса аутентификации
+        async function updateAuthUI() {
+            if (authChecked) return;
+            authChecked = true;
+
+            try {
+                const result = await checkAuth();
+                const authLinks = $('#auth-links');
+
+                if (result.authenticated) {
+                    console.log('User authenticated');
                     authLinks.html(`
                         <li class="nav-item">
                             <a class="nav-link" href="{% url 'notification:notification_list' %}">
@@ -73,7 +92,7 @@
                                 <i class="bi bi-person"></i> Профиль
                             </a>
                         </li>
-                        <li class="nav-item">
+                         <li class="nav-item">
                             <a class="nav-link" href="{% url 'galery:home' %}">
                                 <i class="bi bi-person"></i> Главная
                             </a>
@@ -85,79 +104,55 @@
                         </li>
                     `);
                 } else {
+                    console.log('User not authenticated');
                     authLinks.html(`
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'galery:login_template' %}">
+                            <a class="nav-link" href="/login/">
                                 <i class="bi bi-box-arrow-in-right"></i> Войти
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'galery:registration_template' %}">
+                            <a class="nav-link" href="/register/">
                                 <i class="bi bi-person-plus"></i> Регистрация
                             </a>
                         </li>
                     `);
                 }
-            };
+            } catch (error) {
+                console.error('Error updating auth UI:', error);
+            } finally {
+                authChecked = false;
+            }
+        }
 
-            // Первоначальная загрузка
-            updateAuthUI();
+        // Функция выхода
+        window.logout = async function() {
+            try {
+                await $.ajax({
+                    url: '/api/logout/',
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': getCookie('csrftoken') }
+                });
 
-            // Функция выхода
-            window.logout = function() {
-                const accessToken = localStorage.getItem('accessToken'); // Получаем токен
-                if (accessToken) {
-                    $.ajax({
-                        url: '/api/logout/', //  URL выхода
-                        method: 'POST',
-                        headers: {
-                            'Authorization': 'Bearer ' + accessToken, //  Access Token
-                            'X-CSRFToken': '{{ csrf_token }}'
-                        },
-                        success: function(data) {
-                            localStorage.removeItem('accessToken'); //  Access Token
-                            localStorage.removeItem('refreshToken'); //  Refresh Token
-                            window.location.href = "{% url 'galery:home' %}";
-                        },
-                        error: function(jqXHR, textStatus, errorThrown) {
-                            console.error('Ошибка при выходе:', textStatus, errorThrown);
-                            alert('Ошибка при выходе.');
-                            localStorage.removeItem('accessToken');
-                            localStorage.removeItem('refreshToken');
-                            window.location.href = "{% url 'galery:home' %}";
-                        }
-                    });
-                } else {
-                    localStorage.removeItem('accessToken');
-                    localStorage.removeItem('refreshToken');
-                    window.location.href = "{% url 'galery:home' %}";
-                }
-            };
+                // Очищаем куки и обновляем UI
+                document.cookie = "access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+                document.cookie = "refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+                await updateAuthUI();
+                window.location.href = "{% url 'galery:home' %}";
+            } catch (error) {
+                console.error('Logout failed:', error);
+            }
+        };
 
-            // Обработчики поиска и сортировки
-            $('#search-form').on('submit', function(e) {
-                e.preventDefault();
-                const search = $('#search-input').val();  // Получаем значение поиска
-                const ordering = $('#sort-select').val();  // Получаем значение сортировки
-
-                // Вызываем функцию loadPhotos из блока content, если она определена
-                if (typeof loadPhotos === 'function') {
-                    loadPhotos(search, ordering);  // Передаем параметры в loadPhotos
-                }
-            });
-
-            $('#sort-select').on('change', function() {
-                const search = $('#search-input').val();  // Получаем значение поиска
-                const ordering = $('#sort-select').val();  // Получаем значение сортировки
-                // Вызываем функцию loadPhotos из блока content, если она определена
-                if (typeof loadPhotos === 'function') {
-                   loadPhotos(search, ordering);  // Передаем параметры в loadPhotos
-                }
-            });
-        });
+        // Вспомогательная функция для получения куки
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+        }
+        updateAuthUI();
     </script>
 
-    <!-- Дополнительные скрипты из блока content -->
     {% block extra_scripts %}{% endblock %}
 </body>
 </html>

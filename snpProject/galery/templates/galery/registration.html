@@ -69,11 +69,13 @@ $(document).ready(function() {
             },
             success: function(data) {
                 console.log('Registration success:', data);
+                window.location.href = "{% url 'galery:login_template' %}";
                 $('#registrationMessage').html('<div class="alert alert-success">Регистрация прошла успешно!</div>');
                 // Очищаем форму (необязательно)
                 $('#registrationForm')[0].reset();
                 // Выполняем вход в систему после успешной регистрации
                 loginUser (email, password);
+                window.location.href = "{% url 'galery:login_template' %}";
             },
             error: function(jqXHR, textStatus, errorThrown) {
                 console.error('Ошибка при регистрации:', jqXHR);
@@ -84,6 +86,7 @@ $(document).ready(function() {
                     for (const field in errors) {
                         errorMessage += `${field}: ${errors[field].join(', ')} `;
                     }
+                    
                 } catch (e) {
                     errorMessage += jqXHR.responseText;
                 }

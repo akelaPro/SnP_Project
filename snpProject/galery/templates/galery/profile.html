@@ -9,33 +9,47 @@
                     <h5>Профиль</h5>
                 </div>
                 <div class="card-body" id="profile-info">
-                    <!-- Данные профиля будут загружены сюда -->
                     <div class="text-center">
                         <div class="spinner-border text-primary" role="status" id="profile-spinner">
                             <span class="visually-hidden">Загрузка...</span>
                         </div>
                     </div>
                 </div>
-                <div>
-                    <p><a href="{% url 'galery:create_photo' %}">Добавить фото</a></p>
+                <div class="card-footer">
+                    <p><a href="{% url 'galery:create_photo' %}" class="btn btn-success">Добавить фото</a></p>
                 </div>
             </div>
         </div>
 
         <div class="col-md-8">
-            <h2>Мои фотографии</h2>
-            <div class="mb-3 d-flex align-items-center">
-                <label for="status-filter" class="form-label me-2">Фильтр по статусу:</label>
-                <select class="form-select me-2" id="status-filter" style="width: auto;">
-                    <option value="">Все статусы</option>
-                    <option value="1">На удалении</option>
-                    <option value="2">На модерации</option>
-                    <option value="3">Одобрено</option>
-                    <option value="4">Отклонено</option>
-                </select>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2 class="mb-0">Мои фотографии</h2>
+                <!-- Добавляем кнопку для скрытия/показа фильтров -->
+                <button class="btn btn-outline-secondary" id="toggle-filters">
+                    <i class="bi bi-funnel"></i> Фильтры
+                </button>
             </div>
+            
+            <!-- Блок фильтров (изначально скрыт) -->
+            <div class="card mb-3 d-none" id="filters-block">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-2">
+                            <label for="status-filter" class="form-label">Статус модерации:</label>
+                            <select class="form-select" id="status-filter">
+                                <option value="">Все статусы</option>
+                                <option value="1">На удалении</option>
+                                <option value="2">На модерации</option>
+                                <option value="3">Одобрено</option>
+                                <option value="4">Отклонено</option>
+                            </select>
+                        </div>
+                        
+                    </div>
+                </div>
+            </div>
+            
             <div class="row" id="photos">
-                <!-- Фотографии будут загружены сюда -->
                 <div class="text-center">
                     <div class="spinner-border text-primary" role="status" id="photos-spinner">
                         <span class="visually-hidden">Загрузка...</span>
@@ -46,118 +60,168 @@
     </div>
 </div>
 
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<!-- Скрытый элемент для хранения данных -->
+<div id="profile-data" 
+     data-profile-url="{% url 'API:user_profile' %}"
+     data-photos-url="{% url 'API:user_photos' %}"
+     style="display: none;"></div>
+{% endblock %}
+
+{% block extra_scripts %}
 <script>
     $(document).ready(function() {
-        const accessToken = localStorage.getItem('accessToken'); 
-        if (!accessToken) {
-            console.error('Токен доступа отсутствует');
-          
-            //  window.location.href = "{% url 'galery:login_template' %}";
-            return;
-        }
+        // Получаем URL из data-атрибутов
+        const profileUrl = $('#profile-data').data('profile-url');
+        const photosUrl = $('#profile-data').data('photos-url');
+        
+        // Переменные для хранения текущих параметров
+        let currentFilters = {
+            search: '',
+            status: '',
+            ordering: '-published_at'
+        };
 
-        function loadPhotos(search = '', ordering = '') {
-            $('#photos-spinner').show(); 
-            let url = '{% url "API:user_photos" %}';
-            const params = [];
-
-            const moderation_status = $('#status-filter').val();
-
-            if (search) {
-                params.push('search=' + search);
+        // Функция загрузки фотографий с учетом фильтров
+        function loadPhotos() {
+            $('#photos-spinner').show();
+            
+            const params = new URLSearchParams();
+            if (currentFilters.search) {
+                params.append('search', currentFilters.search);
             }
-            if (ordering) {
-                params.push('ordering=' + ordering);
+            if (currentFilters.status) {
+                params.append('moderation_status', currentFilters.status);
             }
-            if (moderation_status) {
-                params.push('moderation_status=' + moderation_status);
-            }
-
-            if (params.length > 0) {
-                url += '?' + params.join('&');
+            if (currentFilters.ordering) {
+                params.append('ordering', currentFilters.ordering);
             }
 
             $.ajax({
-                url: url,
+                url: photosUrl + '?' + params.toString(),
                 method: 'GET',
                 headers: {
-                    'Authorization': 'Bearer ' + accessToken 
+                    'X-CSRFToken': '{{ csrf_token }}'
                 },
                 success: function(data) {
-                    $('#photos-spinner').hide(); 
-                    let photosHtml = '';
-                    if (data.length > 0) {
-                        data.forEach(photo => {
-                            photosHtml += `
-                                <div class="col-md-4 mb-4">
-                                    <div class="card">
-                                        <a href="/galery/photo/${photo.id}/">
-                                            <img src="${photo.image}" alt="${photo.title}" class="card-img-top" style="max-height: 200px; object-fit: cover;">
-                                        </a>
-                                        <div class="card-body">
-                                            <h5 class="card-title">${photo.title}</h5>
-                                            <p class="card-text">${photo.description}</p>
-                                            <p class="card-text">Статус: ${photo.status_display}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            `;
-                        });
-                    } else {
-                        photosHtml = `<div class="col-12"><p>У вас нет загруженных фотографий.</p></div>`;
-                    }
-                    $('#photos').html(photosHtml);
+                    $('#photos-spinner').hide();
+                    renderPhotos(data);
                 },
                 error: function(xhr) {
                     $('#photos-spinner').hide();
-                    console.error('Ошибка при загрузке фотографий:', xhr.responseText);
-
+                    $('#photos').html('<div class="col-12"><p class="text-danger">Ошибка загрузки фотографий</p></div>');
+                    console.error('Ошибка загрузки фотографий:', xhr);
                 }
             });
         }
 
-        // Загрузка профиля
-        $.ajax({
-            url: '{% url "API:user_profile" %}',
-            method: 'GET',
-            headers: {
-                'Authorization': 'Bearer ' + accessToken 
-            },
-            beforeSend: function(){
-              $('#profile-spinner').show(); 
-            },
-            success: function(data) {
-                $('#profile-spinner').hide(); 
-                const avatarUrl = data.avatar;
-                $('#profile-info').html(`
-                    <img src="" alt="Avatar" class="img-fluid rounded-circle mb-3" style="width: 100px; height: 100px;">
-                    <p>Логин: ${data.username}</p>
-                    <p>Email: ${data.email}</p>
-                    <button id="edit-profile" class="btn btn-primary">Редактировать</button>
-                `);
-            },
-            error: function(xhr) {
-                $('#profile-spinner').hide(); 
-                console.error('Ошибка при загрузке профиля:', xhr.responseText);
-                
+        // Отрисовка фотографий (остается без изменений)
+        function renderPhotos(photos) {
+            let photosHtml = '';
+            if (photos.length > 0) {
+                photos.forEach(photo => {
+                    photosHtml += `
+                    <div class="col-md-4 mb-4">
+                        <div class="card h-100">
+                            <a href="/photo/${photo.id}/">
+                                <img src="${photo.image}" 
+                                     alt="${photo.title}" 
+                                     class="card-img-top" 
+                                     style="height: 200px; object-fit: cover;">
+                            </a>
+                            <div class="card-body">
+                                <h5 class="card-title">${photo.title}</h5>
+                                <p class="card-text text-truncate">${photo.description || ''}</p>
+                                <span class="badge ${getStatusBadgeClass(photo.moderation_status)}">
+                                    ${photo.status_display}
+                                </span>
+                            </div>
+                        </div>
+                    </div>`;
+                });
+            } else {
+                photosHtml = `<div class="col-12"><p>Фотографии не найдены.</p></div>`;
+            }
+            $('#photos').html(photosHtml);
+        }
+
+        // Классы для статусов (без изменений)
+        function getStatusBadgeClass(status) {
+            const classes = {
+                '1': 'bg-danger',
+                '2': 'bg-warning',
+                '3': 'bg-success',
+                '4': 'bg-secondary'
+            };
+            return classes[status] || 'bg-light text-dark';
+        }
+
+        // Загрузка профиля (без изменений)
+        function loadProfile() {
+            $('#profile-spinner').show();
+            
+            $.ajax({
+                url: profileUrl,
+                method: 'GET',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                success: function(data) {
+                    $('#profile-spinner').hide();
+                    renderProfile(data);
+                },
+                error: function(xhr) {
+                    $('#profile-spinner').hide();
+                    $('#profile-info').html('<p class="text-danger">Ошибка загрузки профиля</p>');
+                }
+            });
+        }
+
+        // Отрисовка профиля (без изменений)
+        function renderProfile(profileData) {
+            $('#profile-info').html(`
+                <div class="text-center mb-3">
+                    <img src="${profileData.avatar || '/static/images/default_avatar.png'}" 
+                         alt="Avatar" 
+                         class="img-fluid rounded-circle" 
+                         style="width: 150px; height: 150px; object-fit: cover;">
+                </div>
+                <div class="mb-3">
+                    <h5 class="text-center">${profileData.username}</h5>
+                    <p class="text-center text-muted">${profileData.email}</p>
+                </div>
+            `);
+        }
+
+        // Обработчики событий
+        $('#toggle-filters').click(function() {
+            $('#filters-block').toggleClass('d-none');
+        });
+
+        $('#status-filter').change(function() {
+            currentFilters.status = $(this).val();
+            loadPhotos();
+        });
+
+        $('#sort-select').change(function() {
+            currentFilters.ordering = $(this).val();
+            loadPhotos();
+        });
+
+        $('#search-button').click(function() {
+            currentFilters.search = $('#search-input').val().trim();
+            loadPhotos();
+        });
+
+        $('#search-input').keypress(function(e) {
+            if (e.which === 13) {
+                currentFilters.search = $(this).val().trim();
+                loadPhotos();
             }
         });
 
-
+        // Инициализация
+        loadProfile();
         loadPhotos();
-
-        // Обработчики изменения сортировки и фильтрации
-        $('#status-filter').change(function() {
-            loadPhotos();
-        });
-        $('#sort-select').change(function() {
-            loadPhotos($('#search-input').val(), $(this).val()); 
-        });
-        $('#search-form').submit(function(e){
-            e.preventDefault();
-             loadPhotos($('#search-input').val(), $('#sort-select').val()); 
-        });
     });
 </script>
 {% endblock %}

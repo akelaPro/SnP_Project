@@ -1,9 +1,6 @@
 $(document).ready(function() {
     const photoId = window.location.pathname.split('/').filter(Boolean).pop();
-    let accessToken = localStorage.getItem('accessToken');
-    let refreshToken = localStorage.getItem('refreshToken');
-    console.log("Initial accessToken:", accessToken);
-    console.log("Initial refreshToken:", refreshToken);
+    const loginUrl = $('#login-data').data('login-url');
 
     const commentForm = $('#comment-form');
     const likeButton = $('#like-button');
@@ -13,7 +10,6 @@ $(document).ready(function() {
     const deletePhotoButton = $('#delete-photo-button');
     const restorePhotoButton = $('#restore-photo-button');
     const photoActions = $('#photo-actions');
-    const timerDiv = $('#timer');
     const showAllCommentsButton = $('#show-all-comments-button');
     const hideAllCommentsButton = $('#hide-all-comments-button');
 
@@ -22,125 +18,40 @@ $(document).ready(function() {
     let isRefreshing = false;
     let failedQueue = [];
 
-    // Auth System (Your existing auth logic)
-    function processQueue(error, token = null) {
-        console.log("Processing queue:", failedQueue.length, "items. Error:", error);
-        failedQueue.forEach(prom => {
-            if (error) {
-                prom.reject(error);
-            } else {
-                prom.resolve(token);
-            }
-        });
-        failedQueue = [];
-    }
-
-    $.ajaxPrefilter(function(options, originalOptions, jqXHR) {
-        if (!options.headers) options.headers = {};
-        if (accessToken) {
-            options.headers['Authorization'] = 'Bearer ' + accessToken;
-            console.log("Adding Authorization header:", accessToken);
-        }
-    });
-
-    $(document).ajaxError(function(event, jqXHR, ajaxSettings, thrownError) {
-        console.log("AJAX Error:", jqXHR.status, ajaxSettings.url, thrownError);
-        if (jqXHR.status === 401 && !ajaxSettings._retry) {
-            const originalOptions = ajaxSettings;
-            console.log("Token expired. Attempting refresh...");
-
-            if (isRefreshing) {
-                console.log("Refresh already in progress. Adding to queue.");
-                return new Promise(function(resolve, reject) {
-                    failedQueue.push({ resolve, reject });
-                }).then(token => {
-                    console.log("Using refreshed token from queue.");
-                    originalOptions.headers['Authorization'] = 'Bearer ' + token;
-                    return $.ajax(originalOptions);
-                }).catch(reject);
-            }
-
-            isRefreshing = true;
-            originalOptions._retry = true;
-
-            refreshTokenRequest()
-                .then(newTokens => {
-                    console.log("Token refreshed successfully.");
-                    accessToken = newTokens.access;
-                    refreshToken = newTokens.refresh;
-                    localStorage.setItem('accessToken', accessToken);
-                    localStorage.setItem('refreshToken', refreshToken);
-                    console.log("New accessToken:", accessToken);
-                    originalOptions.headers['Authorization'] = 'Bearer ' + accessToken;
-                    processQueue(null, accessToken);
-                    isRefreshing = false;
-                    scheduleTokenRefresh(120);
-                    return $.ajax(originalOptions);
-                })
-                .catch(error => {
-                    console.error("Error refreshing token:", error);
-                    processQueue(error, null);
-                    isRefreshing = false;
-                    localStorage.removeItem('accessToken');
-                    localStorage.removeItem('refreshToken');
-                    console.log("Redirecting to login...");
-                    window.location.href = "{% url 'galery:login_template' %}";
-                });
-        }
-    });
-
-    function scheduleTokenRefresh(expiresIn) {
-        if (tokenRefreshTimeout) clearTimeout(tokenRefreshTimeout);
-        const refreshTime = (expiresIn - 30) * 1000;
-        console.log("Scheduling token refresh in", refreshTime / 1000, "seconds");
-        tokenRefreshTimeout = setTimeout(refreshTokenRequest, refreshTime);
-    }
-
-    function refreshTokenRequest() {
+    // Проверка аутентификации через API
+    function checkAuth() {
         return new Promise((resolve, reject) => {
-            const currentRefreshToken = localStorage.getItem('refreshToken');
-            if (!currentRefreshToken) {
-                console.error("No refresh token found. Redirecting to login.");
-                localStorage.removeItem('accessToken');
-                localStorage.removeItem('refreshToken');
-                window.location.href = "{% url 'galery:login_template' %}";
-                return reject("No refresh token");
-            }
-
-            const data = JSON.stringify({ refresh: currentRefreshToken });
-            console.log("Attempting to refresh token...");
-
             $.ajax({
-                url: '/api/refresh/',
-                method: 'POST',
-                contentType: 'application/json',
-                data,
-                headers: { 'X-CSRFToken': '{{ csrf_token }}' },
-                success: function(data) {
-                    console.log("Token refresh success:", data);
-                    localStorage.setItem('accessToken', data.access);
-                    localStorage.setItem('refreshToken', data.refresh);
-                    accessToken = data.access;
-                    refreshToken = data.refresh;
-                    scheduleTokenRefresh(120);
-                    resolve(data);
+                url: '/api/auth/verify/',
+                method: 'GET',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                success: function(response) {
+                    resolve(response.is_authenticated);
                 },
                 error: function(xhr) {
-                    console.error("Failed to refresh token:", xhr);
-                    localStorage.removeItem('refreshToken');
-                    localStorage.removeItem('accessToken');
-                    console.log("Redirecting to login after refresh failure...");
-                    window.location.href = "{% url 'galery:login_template' %}";
-                    reject(xhr);
+                    if (xhr.status === 401) {
+                        resolve(false);
+                    } else {
+                        reject(xhr);
+                    }
                 }
             });
         });
     }
 
+    // Заголовки для запросов
+    function getAuthHeaders() {
+        return {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json'
+        };
+    }
 
-    // UI Functions
-    function updateAuthUI() {
-        if (accessToken) {
+    // Обновление UI в зависимости от статуса аутентификации
+    function updateAuthUI(isAuthenticated) {
+        if (isAuthenticated) {
             commentForm.show();
             likeButton.show();
             loginPromptComment.hide();
@@ -154,31 +65,99 @@ $(document).ready(function() {
         }
     }
 
-    // Photo Loading
+    // Обработка ошибки аутентификации
+    function handleAuthError() {
+        updateAuthUI(false);
+        window.location.href = loginUrl;
+    }
+
+    // Обновление токена
+    function refreshTokenRequest() {
+        return new Promise((resolve, reject) => {
+            $.ajax({
+                url: '/api/refresh/',
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                success: function() {
+                    resolve();
+                },
+                error: function(xhr) {
+                    reject(xhr);
+                }
+            });
+        });
+    }
+
+    // Обработка очереди запросов
+    function processQueue(error, token = null) {
+        failedQueue.forEach(promiseData => {
+            if (error) {
+                promiseData.reject(error);
+            } else {
+                promiseData.resolve(token);
+            }
+        });
+        failedQueue = [];
+    }
+
+    // Обработчик AJAX ошибок
+    $(document).ajaxError(function(event, jqXHR, ajaxSettings, thrownError) {
+        if (jqXHR.status === 401 && !ajaxSettings._retry) {
+            const originalOptions = ajaxSettings;
+
+            if (isRefreshing) {
+                return new Promise(function(resolve, reject) {
+                    failedQueue.push({ resolve, reject });
+                }).then(function() {
+                    return $.ajax(originalOptions);
+                });
+            }
+
+            isRefreshing = true;
+            originalOptions._retry = true;
+
+            refreshTokenRequest()
+                .then(function() {
+                    processQueue(null);
+                    return $.ajax(originalOptions);
+                })
+                .catch(function(error) {
+                    processQueue(error, null);
+                    handleAuthError();
+                })
+                .finally(function() {
+                    isRefreshing = false;
+                });
+        }
+    });
+
+    // Загрузка данных фотографии
     function loadPhotoDetails() {
-        console.log("Loading photo details...");
         return new Promise((resolve, reject) => {
             $.ajax({
                 url: `/api/photos/${photoId}/?include_deleted=true`,
                 method: 'GET',
+                headers: getAuthHeaders(),
                 success: function(photo) {
-                    console.log("Photo details loaded successfully.");
                     $('#photo-title').text(photo.title);
                     $('#photo-image').attr('src', photo.image || '');
                     $('#photo-author').text(photo.author.username);
                     $('#photo-author-avatar').attr('src', photo.author.avatar || '');
                     $('#photo-description').text(photo.description);
-                    $('#votes-count').text(photo.votes.length || 0); // Используем votes.length
+                    $('#votes-count').text(photo.votes.length || 0);
     
-                    // Заполняем форму редактирования
                     $('#edit-title').val(photo.title);
                     $('#edit-description').val(photo.description);
     
                     window.canEdit = photo.can_edit;
     
                     if (window.canEdit) {
-                        // Условие для отображения кнопок
-                        if (photo.moderation === '1' && photo.deleted_at) {
+                        // Изменяем проверку на удаление - приводим moderation к строке для сравнения
+                        const isDeleted = String(photo.moderation) === '1' && photo.deleted_at;
+                        
+                        if (isDeleted) {
                             deletePhotoButton.hide();
                             restorePhotoButton.show();
                         } else {
@@ -186,19 +165,15 @@ $(document).ready(function() {
                             restorePhotoButton.hide();
                         }
                         photoActions.show();
-                        $('#edit-photo-button').show(); // Показываем кнопку редактирования
+                        $('#edit-photo-button').show();
                     } else {
                         photoActions.hide();
-                        $('#edit-photo-button').hide(); // Скрываем кнопку редактирования
+                        $('#edit-photo-button').hide();
                     }
     
-                    // Обрабатываем информацию о лайке пользователя
-                    console.log("photo.has_liked:", photo.has_liked); // Добавлено логирование
                     if (photo.has_liked === true) {
                         $('#like-button').hide();
-                        // Находим voteId пользователя
-                        const userVoteId = photo.votes.find(voteId => true); // Берем первый элемент (id лайка)
-                        console.log("userVoteId:", userVoteId); // Добавлено логирование
+                        const userVoteId = photo.votes.find(vote => vote);
                         $('#unlike-button').show().data('voteId', userVoteId);
                     } else {
                         $('#like-button').show();
@@ -208,76 +183,78 @@ $(document).ready(function() {
                     resolve(photo);
                 },
                 error: function(xhr) {
-                    console.error('Ошибка при загрузке фотографии:', xhr.responseText);
-                    photoActions.hide();
                     reject(xhr);
                 }
             });
         });
     }
 
+    // Удаление фотографии
     $('#delete-photo-button').click(function() {
         if (!confirm("Вы уверены, что хотите удалить эту фотографию?")) return;
-    
+
         $.ajax({
             url: `/api/photos/${photoId}/`,
             method: 'DELETE',
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}',
-                'Content-Type': 'application/json'
-            },
-            success: function(response) {
-                
-                
+            headers: getAuthHeaders(),
+            success: function() {
                 $('#delete-photo-button').hide();
                 $('#restore-photo-button').show();
-                
-                // Refresh after 35 seconds to ensure deletion is complete
-                setTimeout(() => {
-                    location.reload();
-                }, 35000);
             },
             error: function(xhr) {
-                let errorMsg = 'Ошибка при удалении фотографии';
-                if (xhr.responseJSON) {
-                    errorMsg = xhr.responseJSON.detail || 
-                              (xhr.responseJSON.non_field_errors && xhr.responseJSON.non_field_errors.join(', ')) ||
-                              JSON.stringify(xhr.responseJSON);
-                }
-
+                alert(xhr.responseJSON?.detail || 'Ошибка при удалении фотографии');
             }
         });
     });
 
+    // Восстановление фотографии
     $('#restore-photo-button').click(function() {
         $.ajax({
             url: `/api/photos/${photoId}/restore_photo/`,
             method: 'POST',
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
-            success: function(response) {
-                loadPhotoDetails(); // Обновляем информацию о фото, включая отображение кнопок
+            headers: getAuthHeaders(),
+            success: function() {
+                loadPhotoDetails();
             },
             error: function(xhr) {
-                console.error('Ошибка при восстановлении фотографии:', xhr.responseText);
-                try {
-                    const errorData = JSON.parse(xhr.responseText);
-                    alert('Ошибка при восстановлении фотографии: ' + (errorData.detail || 'Неизвестная ошибка'));
-                } catch (e) {
-                    alert('Ошибка при восстановлении фотографии: ' + xhr.responseText);
-                }
+                alert(xhr.responseJSON?.detail || 'Ошибка при восстановлении фотографии');
             }
         });
     });
 
-    // Comments System
+
+    commentForm.on('submit', function(e) {
+        e.preventDefault(); // Предотвращаем стандартную отправку формы
+        
+        const formData = {
+            text: commentForm.find('textarea[name="text"]').val(),
+            photo: photoId
+        };
+        
+        $.ajax({
+            url: '/api/comments/',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(formData),
+            headers: getAuthHeaders(),
+            success: function() {
+                // Очищаем поле ввода
+                commentForm.find('textarea').val('');
+                // Обновляем список комментариев
+                loadInitialComments();
+            },
+            error: function(xhr) {
+                alert('Ошибка при добавлении комментария: ' + (xhr.responseJSON?.detail || xhr.statusText));
+            }
+        });
+    });
+
+
+    // Система комментариев
     function loadInitialComments() {
-        console.log("Loading initial comments...");
-        return new Promise((resolve, reject) => { // Added promise
+        return new Promise((resolve, reject) => {
             $.get(`/api/comments/?photo=${photoId}`)
                 .done(comments => {
-                    console.log("Initial comments loaded successfully.");
                     const commentsList = $('#comments-list');
                     commentsList.empty();
 
@@ -291,20 +268,15 @@ $(document).ready(function() {
                     });
 
                     showAllCommentsButton.toggle(rootComments.length > 2);
-                    resolve(); // Resolve promise on success
+                    resolve();
                 })
-                .fail(xhr => {
-                    console.error('Ошибка при загрузке комментариев:', xhr.responseText);
-                    reject(xhr); // Reject promise on error
-                });
+                .fail(reject);
         });
     }
 
     function loadAllComments() {
-        console.log("Loading all comments...");
         $.get(`/api/comments/?photo=${photoId}`)
             .done(comments => {
-                console.log("All comments loaded successfully.");
                 const commentsList = $('#comments-list');
                 commentsList.empty();
 
@@ -317,154 +289,99 @@ $(document).ready(function() {
                 hideAllCommentsButton.show();
                 allCommentsLoaded = true;
             })
-            .fail(xhr => console.error('Ошибка при загрузке всех комментариев:', xhr.responseText));
+            .fail(xhr => console.error('Ошибка при загрузке всех комментариев:', xhr));
     }
 
     function buildCommentHTML(comment, allComments, level = 0) {
         const replies = allComments.filter(c => c.parent === comment.id);
         const repliesVisible = localStorage.getItem(`repliesVisible-${comment.id}`) === 'true';
+        
         let html = `
-            <li id="comment-${comment.id}" style="margin-left: ${level * 30}px; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px;">
-                <div>
-                    <strong>${comment.author.username}</strong>: ${comment.text}
-                </div>
-                <div style="font-size: smaller; color: #888;">
-                    ${new Date(comment.created_at).toLocaleString()}
-                    <button class="reply-button btn btn-sm btn-outline-secondary" data-comment-id="${comment.id}">Ответить</button>
-
-
-                </div>
-        `;
+        <li id="comment-${comment.id}" style="margin-left: ${level * 30}px; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px;">
+            <div>
+                <strong>${comment.author.username}</strong>: ${comment.text}
+            </div>
+            <div style="font-size: smaller; color: #888;">
+                ${new Date(comment.created_at).toLocaleString()}
+                <button class="reply-button btn btn-sm btn-outline-secondary" data-comment-id="${comment.id}">Ответить</button>
+            </div>`;
 
         if (comment.can_delete) {
             html += `
-                <div style="margin-top: 5px;">
+            <div style="margin-top: 5px;">
                 <button class="edit-comment-button btn btn-sm btn-outline-primary" data-comment-id="${comment.id}">Редактировать</button>
                 <button class="delete-comment-button btn btn-sm btn-outline-danger" data-comment-id="${comment.id}">Удалить</button>
-                </div>
-            `;
+            </div>`;
         }
+
         if (replies.length > 0) {
             html += `
-                <button class="toggle-replies-button btn btn-sm btn-link" data-comment-id="${comment.id}">
-                    ${repliesVisible ? 'Скрыть ответы' : 'Показать ответы'}
-                </button>
-                <ul class="replies" id="replies-${comment.id}" ${repliesVisible ? '' : 'style="display: none;"'}>
-                    ${replies.map(reply => buildCommentHTML(reply, allComments, level + 1)).join('')}
-                </ul>`;
+            <button class="toggle-replies-button btn btn-sm btn-link" data-comment-id="${comment.id}">
+                ${repliesVisible ? 'Скрыть ответы' : 'Показать ответы'}
+            </button>
+            <ul class="replies" id="replies-${comment.id}" ${repliesVisible ? '' : 'style="display: none;"'}>
+                ${replies.map(reply => buildCommentHTML(reply, allComments, level + 1)).join('')}
+            </ul>`;
         }
 
         html += '</li>';
         return html;
     }
 
-
-    function showEditForm(commentId, currentText) {
-        const commentElement = $(`#comment-${commentId}`);
-        const editForm = `
-            <div id="edit-form-${commentId}" style="margin-top: 10px;">
-                <textarea class="edit-comment-text form-control" rows="3">${currentText}</textarea>
-                <button class="save-edit-button btn btn-sm btn-primary" data-comment-id="${commentId}">Сохранить</button>
-                <button class="cancel-edit-button btn btn-sm btn-secondary" data-comment-id="${commentId}">Отменить</button>
-            </div>
-        `;
-        commentElement.append(editForm);
-        commentElement.find('.edit-comment-text').focus();
-    }
-
-    function hideEditForm(commentId) {
-        $(`#edit-form-${commentId}`).remove();
-    }
-
+    // Обработчики событий
     $(document).on('click', '.edit-comment-button', function() {
         const commentId = $(this).data('comment-id');
         const commentElement = $(`#comment-${commentId}`);
         const currentText = commentElement.find('div:first-child').text().split(': ').slice(1).join(': ');
 
-        if ($(`#edit-form-${commentId}`).length) {
-            return; // Если форма уже открыта, ничего не делаем
-        }
-        showEditForm(commentId, currentText);
+        if ($(`#edit-form-${commentId}`).length) return;
+
+        const editForm = `
+        <div id="edit-form-${commentId}" style="margin-top: 10px;">
+            <textarea class="edit-comment-text form-control" rows="3">${currentText}</textarea>
+            <button class="save-edit-button btn btn-sm btn-primary" data-comment-id="${commentId}">Сохранить</button>
+            <button class="cancel-edit-button btn btn-sm btn-secondary" data-comment-id="${commentId}">Отменить</button>
+        </div>`;
+        commentElement.append(editForm);
     });
 
     $(document).on('click', '.save-edit-button', function() {
         const commentId = $(this).data('comment-id');
         const newText = $(this).closest('div').find('.edit-comment-text').val();
-        console.log('Saving edit for comment:', commentId, 'with text:', newText);
-        const data = JSON.stringify({ text: newText })
+
         $.ajax({
             url: `/api/comments/${commentId}/`,
             method: 'PATCH',
             contentType: 'application/json',
-            data,
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
+            data: JSON.stringify({ text: newText }),
+            headers: getAuthHeaders(),
             success: function() {
-                loadInitialComments(); // Обновляем список комментов
+                loadInitialComments();
             },
             error: function(xhr) {
-                console.error('Ошибка при редактировании комментария:', xhr.responseText);
                 alert('Ошибка при редактировании комментария: ' + xhr.responseText);
             }
         });
-        hideEditForm(commentId);
     });
 
     $(document).on('click', '.cancel-edit-button', function() {
         const commentId = $(this).data('comment-id');
-        hideEditForm(commentId);
+        $(`#edit-form-${commentId}`).remove();
     });
-
 
     $(document).on('click', '.delete-comment-button', function() {
         const commentId = $(this).data('comment-id');
-        if (!confirm('Вы уверены, что хотите удалить этот комментарий?')) {
-            return;
-        }
+        if (!confirm('Вы уверены, что хотите удалить этот комментарий?')) return;
+
         $.ajax({
             url: `/api/comments/${commentId}/`,
             method: 'DELETE',
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
-            success: function() {
-                loadInitialComments(); // Обновляем список комментов
-            },
-            error: function(xhr) {
-                console.error('Ошибка при удалении комментария:', xhr.responseText);
-                alert('Ошибка при удалении комментария: ' + xhr.responseText);
-            }
-        });
-    });
-
-    $(document).on('submit', '[id^="reply-form-"]', function(e) {
-        console.log('Форма ответа отправлена');
-        e.preventDefault();
-        const parentId = $(this).data('parent-id');
-        const text = $(this).find('.reply-text').val();
-
-        const data = JSON.stringify({
-            text: text,
-            photo: photoId,
-            parent: parentId
-        });
-
-        $.ajax({
-            url: `/api/comments/`,
-            type: 'POST',
-            contentType: 'application/json',
-            data,
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
+            headers: getAuthHeaders(),
             success: function() {
                 loadInitialComments();
-                $(this).remove(); // Remove the form
             },
             error: function(xhr) {
-                console.error('Ошибка при создании ответа:', xhr.responseText);
-                alert('Ошибка при создании ответа: ' + xhr.responseText);
+                alert('Ошибка при удалении комментария: ' + xhr.responseText);
             }
         });
     });
@@ -472,194 +389,152 @@ $(document).ready(function() {
     $(document).on('click', '.reply-button', function() {
         const commentId = $(this).data('comment-id');
         const replyFormId = `reply-form-${commentId}`;
-        if ($(`#${replyFormId}`).length) {
-            return; // If form is already open, don't add another one
-        }
+        if ($(`#${replyFormId}`).length) return;
+
         const replyForm = `
-            <form id="${replyFormId}" class="reply-form" data-parent-id="${commentId}" style="margin-top: 5px;">
-                <textarea class="reply-text form-control" placeholder="Ваш ответ..."></textarea>
-                <div style="margin-top: 5px;">
-                    <button type="submit" class="btn btn-sm btn-primary">Отправить ответ</button>
-                    <button type="button" class="cancel-reply btn btn-sm btn-secondary">Отменить</button>
-                </div>
-            </form>
-        `;
-        $(this).closest('div').after(replyForm); // Insert form after the comment's content div
+        <form id="${replyFormId}" class="reply-form" data-parent-id="${commentId}" style="margin-top: 5px;">
+            <textarea class="reply-text form-control" placeholder="Ваш ответ..."></textarea>
+            <div style="margin-top: 5px;">
+                <button type="submit" class="btn btn-sm btn-primary">Отправить ответ</button>
+                <button type="button" class="cancel-reply btn btn-sm btn-secondary">Отменить</button>
+            </div>
+        </form>`;
+        $(this).closest('div').after(replyForm);
     });
 
     $(document).on('click', '.cancel-reply', function() {
         $(this).closest('.reply-form').remove();
     });
 
-    function hideAllComments() {
-        $('#comments-list').empty();
-        showAllCommentsButton.show();
-        hideAllCommentsButton.hide();
-        loadInitialComments();
-    }
-
-    // Event Handlers
-    showAllCommentsButton.click(function() {
-        loadAllComments();
-    });
-
-    hideAllCommentsButton.click(function() {
-        hideAllComments();
-    });
-
-    $(document).on('click', '.toggle-replies-button', function() {
-        const commentId = $(this).data('comment-id');
-        const repliesContainer = $(`#replies-${commentId}`);
-        const newVisibility = !repliesContainer.is(':visible');
-
-        repliesContainer.toggle(newVisibility);
-        $(this).text(newVisibility ? 'Скрыть ответы' : 'Показать ответы');
-        localStorage.setItem(`repliesVisible-${commentId}`, newVisibility);
-    });
-
-    $('#comment-form').submit(function(e) {
+    $(document).on('submit', '[id^="reply-form-"]', function(e) {
         e.preventDefault();
-        const text = $(this).find('textarea').val();
-        const data = JSON.stringify({
-            text: text,
-            photo: photoId,
-            // Добавляем parent_id если это ответ на комментарий
-            parent: $(this).data('parent-id') || null
-        });
+        const parentId = $(this).data('parent-id');
+        const text = $(this).find('.reply-text').val();
 
         $.ajax({
             url: `/api/comments/`,
             type: 'POST',
             contentType: 'application/json',
-            data,
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}',
-                'Authorization': accessToken ? 'Bearer ' + accessToken : ''
-            },
-            success: () => {
-                loadPhotoDetails(); // Обновляем данные фото (счетчик комментариев)
-                loadInitialComments(); // Обновляем список комментариев
-                $(this).find('textarea').val('');
+            data: JSON.stringify({
+                text: text,
+                photo: photoId,
+                parent: parentId
+            }),
+            headers: getAuthHeaders(),
+            success: function() {
+                loadInitialComments();
             },
             error: function(xhr) {
-                console.error('Ошибка при создании комментария:', xhr.responseText);
-                alert('Ошибка при создании комментария: ' + xhr.responseText);
+                alert('Ошибка при создании ответа: ' + xhr.responseText);
             }
         });
     });
 
+
+    // Обработчик для кнопки "Показать все комментарии"
+$('#show-all-comments-button').on('click', function() {
+    loadAllComments();
+});
+
+// Обработчик для кнопки "Скрыть все комментарии"
+$('#hide-all-comments-button').on('click', function() {
+    loadInitialComments();
+    hideAllCommentsButton.hide();
+    showAllCommentsButton.show();
+});
+
+// Обработчик для кнопок "Показать/Скрыть ответы"
+$(document).on('click', '.toggle-replies-button', function() {
+    const commentId = $(this).data('comment-id');
+    const repliesContainer = $(`#replies-${commentId}`);
+    const isVisible = repliesContainer.is(':visible');
+    
+    // Переключаем видимость
+    repliesContainer.toggle();
+    
+    // Меняем текст кнопки
+    $(this).text(isVisible ? 'Показать ответы' : 'Скрыть ответы');
+    
+    // Сохраняем состояние в localStorage
+    localStorage.setItem(`repliesVisible-${commentId}`, !isVisible);
+});
+
+
+    // Лайки
     $('#like-button').click(function() {
-        const data = JSON.stringify({ photo: photoId });
-    
-        if (!accessToken) {
-            console.error('Токен доступа отсутствует');
-            window.location.href = "{% url 'galery:login_template' %}";
-            return;
-        }
-        console.log("accessToken перед запросом лайка:", accessToken);
-    
         $.ajax({
             url: `/api/votes/`,
             method: 'POST',
-            data,
             contentType: 'application/json',
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}',
-                'Authorization': accessToken ? 'Bearer ' + accessToken : ''
-            },
+            data: JSON.stringify({ photo: photoId }),
+            headers: getAuthHeaders(),
             success: function(response) {
                 loadPhotoDetails();
-                const voteId = response.id;
-                $('#like-button').hide();
-                $('#unlike-button').show().data('voteId', voteId);
             },
             error: function(xhr) {
-                console.error('Ошибка при постановке лайка:', xhr.responseText);
-                alert('Ошибка при постановке лайка: ' + xhr.responseText);
+                if (xhr.status === 400 && xhr.responseJSON?.detail === 'Вы уже поставили лайк этой фотографии.') {
+                    loadPhotoDetails();
+                } else {
+                    alert('Ошибка при постановке лайка: ' + xhr.responseText);
+                }
             }
         });
     });
-    
+
     $('#unlike-button').click(function() {
         const voteId = $(this).data('voteId');
         $.ajax({
-                url: `/api/votes/${voteId}/`,
-                type: 'DELETE',
-                headers: {
-                    'X-CSRFToken': '{{ csrf_token }}'
-                },
-            })
-            .done(() => {
-                loadPhotoDetails()
-                $(this).hide();
-                $('#like-button').show();
-            })
-            .fail(function(xhr) {
-                console.error('Ошибка при удалении лайка:', xhr.responseText);
-            });
+            url: `/api/votes/${voteId}/`,
+            type: 'DELETE',
+            headers: getAuthHeaders(),
+            success: function() {
+                loadPhotoDetails();
+            },
+            error: function(xhr) {
+                alert('Ошибка при удалении лайка: ' + xhr.responseText);
+            }
+        });
     });
 
+    // Редактирование фотографии
     $('#edit-photo-button').click(function() {
-        // Показываем форму редактирования
         $('#edit-photo-form').toggle();
     });
 
-    // Обработчик для формы редактирования фотографии
     $('#edit-photo-form').submit(function(e) {
         e.preventDefault();
-
         const formData = new FormData(this);
-
-        // Проверка содержимого FormData
-        for (let [key, value] of formData.entries()) {
-            console.log(key, value); // Логируем ключи и значения
-        }
 
         $.ajax({
             url: `/api/photos/${photoId}/`,
             method: 'PATCH',
-            formData,
-            processData: false, // Не обрабатывать данные
-            contentType: false, // Не устанавливать Content-Type
+            data: formData,
+            processData: false,
+            contentType: false,
             headers: {
                 'X-CSRFToken': '{{ csrf_token }}'
             },
-            success: function(response) {
+            success: function() {
                 alert('Фотография успешно обновлена и отправлена на модерацию.');
-                loadPhotoDetails(); // Обновляем информацию о фото
-                $('#edit-photo-form').hide(); // Скрываем форму редактирования
+                loadPhotoDetails();
+                $('#edit-photo-form').hide();
             },
             error: function(xhr) {
-                console.error('Ошибка при обновлении фотографии:', xhr.responseText);
                 alert('Ошибка при обновлении фотографии: ' + xhr.responseText);
             }
         });
     });
 
-
-    // Initialization
-    Promise.all([
-            new Promise(resolve => {
-                // Дожидаемся загрузки токена из localStorage
-                const checkTokenInterval = setInterval(() => {
-                    accessToken = localStorage.getItem('accessToken');
-                    if (accessToken) {
-                        console.log("Access token loaded from localStorage:", accessToken);
-                        clearInterval(checkTokenInterval);
-                        updateAuthUI();
-                        if (accessToken) {
-                            scheduleTokenRefresh(120);
-                        }
-                        resolve();
-                    }
-                }, 50); // Проверяем каждые 50 мс
-            }),
-            loadPhotoDetails()
-        ])
-        .then(() => {
-            loadInitialComments();
+    // Инициализация
+    checkAuth()
+        .then(function(isAuthenticated) {
+            updateAuthUI(isAuthenticated);
+            return loadPhotoDetails();
         })
-        .catch(error => {
+        .then(function() {
+            return loadInitialComments();
+        })
+        .catch(function(error) {
             console.error("Ошибка при инициализации:", error);
         });
 });

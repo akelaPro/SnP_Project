@@ -11,49 +11,34 @@ from django.contrib.auth.backends import BaseBackend
 logger = logging.getLogger(__name__)
 
 class CustomTokenAuthentication(authentication.BaseAuthentication):
-    keyword = 'Bearer'
-
     def authenticate(self, request):
-        auth = authentication.get_authorization_header(request).split()
-
-        if not auth or auth[0].lower() != self.keyword.lower().encode():
+        access_token = request.COOKIES.get('access_token')
+        if not access_token:
             return None
 
-        if len(auth) != 2:
-            raise exceptions.AuthenticationFailed(_('Invalid token header.'))
-
-        token = auth[1].decode()
-        return self.authenticate_credentials(token)
+        try:
+            access_hash = hash_token(access_token)
+            user_token = UserToken.objects.select_related('user').get(
+                access_token_hash=access_hash,
+                access_token_expires__gt=timezone.now()
+            )
+            return (user_token.user, None)
+        except UserToken.DoesNotExist:
+            return None
 
     def authenticate_credentials(self, token):
-        access_hash = hash_token(token)
         try:
-            user_token = UserToken.objects.select_related('user').get(access_token_hash=access_hash)
+            access_hash = hash_token(token)
+            user_token = UserToken.objects.select_related('user').get(
+                access_token_hash=access_hash,
+                access_token_expires__gt=timezone.now()
+            )
         except UserToken.DoesNotExist:
-            raise exceptions.AuthenticationFailed(_('Invalid token.'))
+            raise exceptions.AuthenticationFailed(_('Invalid or expired token.'))
 
-        if timezone.now() > user_token.access_token_expires:
-            raise exceptions.AuthenticationFailed(_('Token has expired.'))
-
-        # Обновляем время жизни токена только если осталось меньше минуты
-        if user_token.access_token_expires - timezone.now() < timedelta(minutes=1):
-            user_token.access_token_expires = timezone.now() + timezone.timedelta(minutes=2)
-            user_token.save(update_fields=['access_token_expires'])
+        # Auto-refresh token if near expiration
+        if user_token.access_token_expires - timezone.now() < timedelta(minutes=5):
+            self.refresh_token(user_token)
 
         return (user_token.user, None)
     
-class EmailAuthBackend(BaseBackend):
-    def authenticate(self, request, username=None, password=None, **kwargs):
-        try:
-            user = User.objects.get(email=username)
-            if user.check_password(password) and user.is_active:
-                return user
-        except (User.DoesNotExist, User.MultipleObjectsReturned):
-            return None
-        return None
-
-    def get_user(self, user_id):
-        try:
-            return User.objects.get(pk=user_id)
-        except User.DoesNotExist:
-            return None

@@ -19,13 +19,14 @@ class PhotoSerializer(serializers.ModelSerializer):
     comments_count = serializers.IntegerField(read_only=True)
     status_display = serializers.SerializerMethodField()
     old_image = serializers.ImageField(read_only=True)
+    moderation = serializers.IntegerField()
 
     class Meta:
         model = Photo
         fields = [
             'id', 'title', 'description', 'author', 'image', 
             'published_at', 'status_display', 'deleted_at', 'comments',
-            'votes', 'has_liked', 'can_edit', 'votes_count', 'old_image', 'delete_task_id', 'comments_count'
+            'votes', 'has_liked', 'can_edit', 'votes_count', 'old_image', 'delete_task_id', 'comments_count', 'moderation'
         ]
         read_only_fields = ['published_at', 'author', 'old_image']
 
@@ -63,11 +64,12 @@ class PhotoSerializer(serializers.ModelSerializer):
         raise serializers.ValidationError("Некорректный файл изображения.")
 
     def update(self, instance, validated_data):
+        instance.moderation = '2'
         if 'image' in validated_data:
             # Сохраняем текущее изображение как старое
             instance.old_image = instance.image
             instance.image = validated_data['image']
-            instance.moderation = '2'  # Отправляем на модерацию
+            
 
         instance.title = validated_data.get('title', instance.title)
         instance.description = validated_data.get('description', instance.description)

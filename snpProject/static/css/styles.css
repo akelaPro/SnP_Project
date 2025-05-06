@@ -1,5 +1,5 @@
 body {
-    background-image: url('/media/images/background.jpg');
+    background-image: url('https://galerytest.storage.yandexcloud.net/media/images/background.jpg');
     background-size: cover; 
     background-position: center; 
     background-repeat: no-repeat; 

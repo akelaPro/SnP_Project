@@ -16,6 +16,31 @@ from pathlib import Path
 from decouple import config
 import dj_database_url
 
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
+import boto3
+boto3.set_stream_logger(name='botocore', level=logging.DEBUG)
+#DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+
+STORAGES = {
+    "default": {
+        "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
+
+AWS_ACCESS_KEY_ID = config('YANDEX_ID_CLOUD_SERVICE')  # Из JSON-ключа
+AWS_SECRET_ACCESS_KEY = config('YANDEX_SECRET_KEY_CLOUD_SERVICE')
+AWS_STORAGE_BUCKET_NAME = config('YANDEX_BUCKET_NAME')
+AWS_S3_ENDPOINT_URL = config('AWS_S3_ENDPOINT_URL')
+AWS_S3_REGION_NAME = 'ru-central1'  # Или другой регион, если используете
+AWS_DEFAULT_ACL = 'public-read'  # Для публичного доступа к файлам
+AWS_QUERYSTRING_AUTH = False  # Отключаем подписанные URL (если не нужны)
+AWS_LOCATION = ''
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -30,7 +55,10 @@ SECRET_KEY = config('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    '127.0.0.1',
+    'localhost',
+]
 
 
 # Application definition
@@ -53,6 +81,8 @@ INSTALLED_APPS = [
     'notification.apps.NotificationConfig',
     'drf_spectacular',
     'service_objects',
+    'social_django',
+    'storages',
     
 ]
 
@@ -62,9 +92,11 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'API.middleware.SocialAuthCookieMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+
 ]
 
 ROOT_URLCONF = 'snpProject.urls'
@@ -154,8 +186,8 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
 ]
-
-MEDIA_URL = '/media/'
+#'https://galerytest.storage.yandexcloud.net' '/media/'
+MEDIA_URL = f'https://{AWS_STORAGE_BUCKET_NAME}.storage.yandexcloud.net/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 AUTH_USER_MODEL = 'galery.User'
@@ -169,9 +201,8 @@ DEFAULT_USER_IMAGE = MEDIA_URL + 'avatars/default_avatr/default_avatar.png'
 
 DEFAULT_PHOTO_IMAGE = MEDIA_URL + 'images/default_image.jpg'
 
-LOGIN_URL = '/galery:login/'
-LOGIN_REDIRECT_URL = 'galery:home'
-LOGOUT_REDIRECT_URL = 'galery:home'
+LOGIN_REDIRECT_URL = '/'  # Или конкретный путь, например '/home/'
+LOGOUT_REDIRECT_URL = '/'
 
 
 ASGI_APPLICATION = 'snpProject.asgi.application'
@@ -201,8 +232,10 @@ REST_FRAMEWORK = {
 
 
 AUTHENTICATION_BACKENDS = [
+    'API.authentication.CustomTokenAuthentication',
+    'social_core.backends.github.GithubOAuth2',
     'django.contrib.auth.backends.ModelBackend',
-    'API.authentication.EmailAuthBackend',
+    #'API.authentication.EmailAuthBackend',
 ]
 
 SPECTACULAR_SETTINGS = {
@@ -242,8 +275,8 @@ EMAIL_ENABLED = config('EMAIL_ENABLED', default=True, cast=bool)
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 SITE_URL = config('SITE_URL', default='http://localhost:8000')
 
-EMAIL_HOST = "smtp.yandex.ru"
-EMAIL_PORT = 465
+EMAIL_HOST = config('EMAIL_HOST')
+EMAIL_PORT = config('EMAIL_PORT')
 EMAIL_HOST_USER = config('EMAIL')
 EMAIL_HOST_PASSWORD = config('EMAIL_PASSWORD')
 EMAIL_USE_SSL = True
@@ -251,3 +284,57 @@ EMAIL_USE_SSL = True
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 SERVER_EMAIL = EMAIL_HOST_USER
 EMAIL_ADMIN = EMAIL_HOST_USER
+
+
+
+SOCIAL_AUTH_GITHUB_SCOPE = ['user:email']
+#SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/auth/github/callback/'
+#SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/auth/github/callback/'
+SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/'  # Перенаправлять на главную страницу
+SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/'
+#SOCIAL_AUTH_SESSION_COOKIE = None
+
+SOCIAL_AUTH_GITHUB_KEY = config('SOCIAL_AUTH_GITHUB_KEY')
+SOCIAL_AUTH_GITHUB_SECRET = config('SOCIAL_AUTH_GITHUB_SECRET')
+SOCIAL_AUTH_GITHUB_CALLBACK_URL = config('SOCIAL_AUTH_GITHUB_CALLBACK_URL')
+
+
+# Для работы с Daphne и ASGI
+SOCIAL_AUTH_POSTGRES_JSONFIELD = True
+SOCIAL_AUTH_PIPELINE = (
+    'social_core.pipeline.social_auth.social_details',
+    'social_core.pipeline.social_auth.social_uid',
+    'social_core.pipeline.social_auth.auth_allowed',
+    'social_core.pipeline.social_auth.social_user',
+    'social_core.pipeline.user.get_username',
+    'API.social_auth_pipeline.get_or_create_user',  # Ваш кастомный пайплайн
+    'social_core.pipeline.social_auth.associate_user',
+    'social_core.pipeline.social_auth.load_extra_data',
+    'social_core.pipeline.user.user_details',
+)
+
+SOCIAL_AUTH_URL_NAMESPACE = 'social'
+
+
+
+CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_SECURE = not DEBUG  # True в production
+CSRF_COOKIE_SAMESITE = 'Lax'
+
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SECURE = not DEBUG  # True в production
+SESSION_COOKIE_SAMESITE = 'Lax'
+
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+]
+CORS_EXPOSE_HEADERS = ['Content-Type', 'X-CSRFToken']
+
+
+# Настройки для сброса пароля
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://127.0.0.1:8000')
+PASSWORD_RESET_TIMEOUT = 3600  # 1 час в секундах
+
+

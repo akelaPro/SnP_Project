@@ -13,13 +13,13 @@ from .models import Notification
 from .serializers import NotificationSerializer
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+from django.contrib.auth.mixins import LoginRequiredMixin
 
 
-
-class NotificationView(View):
+class NotificationViewTemlate(View):  # LoginRequiredMixin проверит аутентификацию
+    
     def get(self, request):
-        notifications = request.user.notifications.all()
-        return render(request, 'notification/notifications.html', {'notifications': notifications})
+        return render(request, 'notification/notifications.html')
 
 
 
