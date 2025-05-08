@@ -31,6 +31,7 @@ django-service-objects = "^0.7.1"
 social-auth-app-django = "^5.4.3"
 python-social-auth = "^0.3.6"
 boto3 = "^1.37.33"
+djoser = "^2.1"
 django-storages = "^1.14.6"
 
 
