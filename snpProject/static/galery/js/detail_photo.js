@@ -12,11 +12,23 @@ $(document).ready(function() {
     const photoActions = $('#photo-actions');
     const showAllCommentsButton = $('#show-all-comments-button');
     const hideAllCommentsButton = $('#hide-all-comments-button');
-
+    let currentUserId = null;
     let allCommentsLoaded = false;
     let tokenRefreshTimeout;
     let isRefreshing = false;
     let failedQueue = [];
+
+    function updateLikeButtons(hasLiked, voteId = null) {
+        if (hasLiked) {
+            $('#like-button').hide();
+            $('#unlike-button').show().data('vote-id', voteId);
+            console.log('Updated buttons: like hidden, unlike shown with vote-id:', voteId);
+        } else {
+            $('#like-button').show();
+            $('#unlike-button').hide();
+            console.log('Updated buttons: like shown, unlike hidden');
+        }
+    }
 
     // Проверка аутентификации через API
     function checkAuth() {
@@ -29,6 +41,7 @@ $(document).ready(function() {
                 },
                 success: function(response) {
                     resolve(response.is_authenticated);
+                    currentUserId = response.user_id;
                 },
                 error: function(xhr) {
                     if (xhr.status === 401) {
@@ -147,7 +160,6 @@ $(document).ready(function() {
                     $('#photo-author-avatar').attr('src', photo.author.avatar || '');
                     $('#photo-description').text(photo.description);
                     $('#votes-count').text(photo.votes.length || 0);
-    
                     $('#edit-title').val(photo.title);
                     $('#edit-description').val(photo.description);
     
@@ -173,11 +185,14 @@ $(document).ready(function() {
     
                     if (photo.has_liked === true) {
                         $('#like-button').hide();
-                        const userVoteId = photo.votes.find(vote => vote);
-                        $('#unlike-button').show().data('voteId', userVoteId);
+                        // Находим ID лайка текущего пользователя
+                        const userVote = photo.votes.find(vote => vote.author_id === currentUserId);
+                        if (userVote) {
+                            $('#unlike-button').show().data('vote-id', userVote.id);
+                        }
                     } else {
                         $('#like-button').show();
-                        $('#unlike-button').hide().data('voteId', null);
+                        $('#unlike-button').hide().removeData('vote-id');
                     }
     
                     resolve(photo);
@@ -188,7 +203,6 @@ $(document).ready(function() {
             });
         });
     }
-
     // Удаление фотографии
     $('#delete-photo-button').click(function() {
         if (!confirm("Вы уверены, что хотите удалить эту фотографию?")) return;
@@ -463,39 +477,58 @@ $(document).on('click', '.toggle-replies-button', function() {
     // Лайки
     $('#like-button').click(function() {
         $.ajax({
-            url: `/api/votes/`,
+            url: '/api/votes/',
             method: 'POST',
             contentType: 'application/json',
             data: JSON.stringify({ photo: photoId }),
             headers: getAuthHeaders(),
             success: function(response) {
-                loadPhotoDetails();
+                // Обновляем состояние кнопок сразу, не дожидаясь загрузки
+                updateLikeButtons(true, response.id);
+                loadPhotoDetails().then(() => {
+                    //showToast('Лайк поставлен!');
+                });
             },
             error: function(xhr) {
-                if (xhr.status === 400 && xhr.responseJSON?.detail === 'Вы уже поставили лайк этой фотографии.') {
-                    loadPhotoDetails();
+                if (xhr.status === 400 && xhr.responseJSON.vote_id) {
+                    updateLikeButtons(true, xhr.responseJSON.vote_id);
+                    showToast('Вы уже лайкали эту фотографию', 'info');
                 } else {
-                    alert('Ошибка при постановке лайка: ' + xhr.responseText);
+                    const errorMsg = xhr.responseJSON?.detail || 'Ошибка при постановке лайка';
+                    showToast(errorMsg, 'error');
+                    loadPhotoDetails(); // Обновляем состояние в случае ошибки
                 }
             }
         });
     });
-
+    
     $('#unlike-button').click(function() {
-        const voteId = $(this).data('voteId');
+        const voteId = $(this).data('vote-id');
+        console.log('Trying to unlike with voteId:', voteId);
+        if (!voteId) {
+            console.error("voteId не определен");
+            showToast("Ошибка: Не удалось удалить лайк.", "error");
+            return;
+        }
+    
         $.ajax({
             url: `/api/votes/${voteId}/`,
-            type: 'DELETE',
+            method: 'DELETE',
             headers: getAuthHeaders(),
             success: function() {
-                loadPhotoDetails();
+                // Обновляем состояние кнопок сразу
+                updateLikeButtons(false);
+                loadPhotoDetails().then(() => {
+                    //showToast('Лайк удален!');
+                });
             },
             error: function(xhr) {
-                alert('Ошибка при удалении лайка: ' + xhr.responseText);
+                const errorMsg = xhr.responseJSON?.detail || 'Ошибка при удалении лайка';
+                showToast(errorMsg, 'error');
+                loadPhotoDetails(); // Обновляем состояние в случае ошибки
             }
         });
     });
-
     // Редактирование фотографии
     $('#edit-photo-button').click(function() {
         $('#edit-photo-form').toggle();

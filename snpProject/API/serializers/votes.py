@@ -9,7 +9,7 @@ class VoteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Vote
         fields = '__all__'
-        read_only_fields = []
+        read_only_fields = ('author',)
 
     def create(self, validated_data):
         validated_data['author'] = self.context['request'].user

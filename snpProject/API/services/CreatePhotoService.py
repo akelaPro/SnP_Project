@@ -15,6 +15,8 @@ class CreatePhotoService(BaseService):
     def process(self):
         user = self.data['user']
         validated_data = self.data['validated_data']
+        if 'moderation' not in validated_data:
+            validated_data['moderation'] = '2'
         photo = Photo.objects.create(author=user, **validated_data) # Сохраняем фото сюда, чтобы получить его ID
         
         # Notify user with subject

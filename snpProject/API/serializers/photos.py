@@ -19,7 +19,11 @@ class PhotoSerializer(serializers.ModelSerializer):
     comments_count = serializers.IntegerField(read_only=True)
     status_display = serializers.SerializerMethodField()
     old_image = serializers.ImageField(read_only=True)
-    moderation = serializers.IntegerField()
+    moderation = serializers.ChoiceField(
+        choices=Photo.STATUS_CHOICES,
+        default='2',
+        required=False
+    )
 
     class Meta:
         model = Photo
