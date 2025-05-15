@@ -7,3 +7,4 @@ from API.views.customTokenViews import *
 from API.views.registerViews import *
 from API.views.password_reset import *
 from API.views.notification import *
+

@@ -51,19 +51,28 @@ class VoteViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(vote)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    def destroy(self, request, *args, **kwargs):
-        vote_id = kwargs.get('pk')  # Получаем vote_id из URL
-        if not vote_id:
-            return Response(
-                {'detail': 'Не указан ID лайка в URL.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+    
+    @action(detail=False, methods=['delete'], url_path='by-photo/(?P<photo_id>\d+)')
+    def delete_by_photo(self, request, photo_id=None):
         try:
-            vote = get_object_or_404(Vote, pk=vote_id, author=request.user)
+            # Находим фото
+            photo = get_object_or_404(Photo, pk=photo_id)
+            
+            # Находим лайк текущего пользователя для этой фото
+            vote = get_object_or_404(Vote, author=request.user, photo=photo)
+            
+            # Удаляем его
             vote.delete()
+            
             return Response(status=status.HTTP_204_NO_CONTENT)
         except Http404:
-            return Response({'detail': 'Лайк не найден или не принадлежит вам.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {'detail': 'Лайк не найден или не принадлежит вам.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
         except Exception as e:
             logger.exception(f"Ошибка при удалении лайка: {e}")
-            return Response({'detail': f'Ошибка при удалении лайка: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {'detail': 'Произошла ошибка при удалении лайка.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

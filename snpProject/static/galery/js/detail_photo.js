@@ -18,43 +18,80 @@ $(document).ready(function() {
     let isRefreshing = false;
     let failedQueue = [];
 
-    function updateLikeButtons(hasLiked, voteId = null) {
-        if (hasLiked) {
-            $('#like-button').hide();
-            $('#unlike-button').show().data('vote-id', voteId);
-            console.log('Updated buttons: like hidden, unlike shown with vote-id:', voteId);
-        } else {
-            $('#like-button').show();
-            $('#unlike-button').hide();
-            console.log('Updated buttons: like shown, unlike hidden');
+    async function initialize() {
+        try {
+            // 1. Проверяем аутентификацию
+            const authData = await checkAuth();
+            currentUserId = authData.user_id;
+            console.log("Authenticated with user ID:", currentUserId);
+            console.log("Current user ID after checkAuth:", currentUserId); // New debug line
+            
+            // 2. Обновляем UI в зависимости от аутентификации
+            updateAuthUI(authData.is_authenticated);
+            
+            // 3. Загружаем данные о фото
+            console.log("Current user ID before loadPhotoDetails:", currentUserId); // New debug line
+            const photo = await loadPhotoDetails();
+            console.log("Photo loaded with has_liked:", photo.has_liked);
+            
+            // 4. Загружаем комментарии
+            await loadInitialComments();
+
+            // Initialize Like Buttons
+            initializeLikeButtons();
+
+            console.log("Initialization complete");
+        } catch (error) {
+            console.error("Initialization failed:", error);
+            handleAuthError();
         }
     }
 
-    // Проверка аутентификации через API
-    function checkAuth() {
-        return new Promise((resolve, reject) => {
-            $.ajax({
-                url: '/api/auth/verify/',
-                method: 'GET',
-                headers: {
-                    'X-CSRFToken': '{{ csrf_token }}'
-                },
-                success: function(response) {
-                    resolve(response.is_authenticated);
-                    currentUserId = response.user_id;
-                },
-                error: function(xhr) {
-                    if (xhr.status === 401) {
-                        resolve(false);
-                    } else {
-                        reject(xhr);
-                    }
-                }
-            });
-        });
+    // Запускаем инициализацию
+    initialize();
+
+   function updateLikeButtons(hasLiked) {
+    console.log("updateLikeButtons called with:", hasLiked);
+    console.log("Updating like buttons - hasLiked:", hasLiked, "currentUserId:", currentUserId);
+    
+    if (!currentUserId) {
+        $('#like-button').hide();
+        $('#unlike-button').hide();
+        return;
     }
 
-    // Заголовки для запросов
+    $('#like-button').toggle(!hasLiked);
+    $('#unlike-button').toggle(hasLiked);
+} 
+
+    function checkAuth() {
+    return new Promise((resolve, reject) => {
+        $.ajax({
+            url: '/api/auth/verify/',
+            method: 'GET',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            success: function(response) {
+                console.log("Auth verification success:", response);
+                currentUserId = response.user_id;
+                resolve({
+                    is_authenticated: response.is_authenticated,
+                    user_id: response.user_id
+                });
+            },
+            error: function(xhr) {
+                console.error("Auth verification error:", xhr);
+                if (xhr.status === 401) {
+                    resolve({ is_authenticated: false, user_id: null });
+                } else {
+                    reject(xhr);
+                }
+            }
+        });
+    });
+}
+
     function getAuthHeaders() {
         return {
             'X-CSRFToken': '{{ csrf_token }}',
@@ -62,7 +99,6 @@ $(document).ready(function() {
         };
     }
 
-    // Обновление UI в зависимости от статуса аутентификации
     function updateAuthUI(isAuthenticated) {
         if (isAuthenticated) {
             commentForm.show();
@@ -78,13 +114,11 @@ $(document).ready(function() {
         }
     }
 
-    // Обработка ошибки аутентификации
     function handleAuthError() {
         updateAuthUI(false);
         window.location.href = loginUrl;
     }
 
-    // Обновление токена
     function refreshTokenRequest() {
         return new Promise((resolve, reject) => {
             $.ajax({
@@ -103,7 +137,6 @@ $(document).ready(function() {
         });
     }
 
-    // Обработка очереди запросов
     function processQueue(error, token = null) {
         failedQueue.forEach(promiseData => {
             if (error) {
@@ -115,7 +148,6 @@ $(document).ready(function() {
         failedQueue = [];
     }
 
-    // Обработчик AJAX ошибок
     $(document).ajaxError(function(event, jqXHR, ajaxSettings, thrownError) {
         if (jqXHR.status === 401 && !ajaxSettings._retry) {
             const originalOptions = ajaxSettings;
@@ -146,7 +178,6 @@ $(document).ready(function() {
         }
     });
 
-    // Загрузка данных фотографии
     function loadPhotoDetails() {
         return new Promise((resolve, reject) => {
             $.ajax({
@@ -162,13 +193,12 @@ $(document).ready(function() {
                     $('#votes-count').text(photo.votes.length || 0);
                     $('#edit-title').val(photo.title);
                     $('#edit-description').val(photo.description);
-    
+
                     window.canEdit = photo.can_edit;
-    
+
                     if (window.canEdit) {
-                        // Изменяем проверку на удаление - приводим moderation к строке для сравнения
                         const isDeleted = String(photo.moderation) === '1' && photo.deleted_at;
-                        
+
                         if (isDeleted) {
                             deletePhotoButton.hide();
                             restorePhotoButton.show();
@@ -182,28 +212,19 @@ $(document).ready(function() {
                         photoActions.hide();
                         $('#edit-photo-button').hide();
                     }
-    
-                    if (photo.has_liked === true) {
-                        $('#like-button').hide();
-                        // Находим ID лайка текущего пользователя
-                        const userVote = photo.votes.find(vote => vote.author_id === currentUserId);
-                        if (userVote) {
-                            $('#unlike-button').show().data('vote-id', userVote.id);
-                        }
-                    } else {
-                        $('#like-button').show();
-                        $('#unlike-button').hide().removeData('vote-id');
-                    }
-    
+
+                    console.log("loadPhotoDetails - photo.has_liked:", photo.has_liked, "currentUserId:", currentUserId);
+                    updateLikeButtons(photo.has_liked);
                     resolve(photo);
                 },
                 error: function(xhr) {
+                    console.error("loadPhotoDetails - error:", xhr);
                     reject(xhr);
                 }
             });
         });
     }
-    // Удаление фотографии
+
     $('#delete-photo-button').click(function() {
         if (!confirm("Вы уверены, что хотите удалить эту фотографию?")) return;
 
@@ -221,7 +242,6 @@ $(document).ready(function() {
         });
     });
 
-    // Восстановление фотографии
     $('#restore-photo-button').click(function() {
         $.ajax({
             url: `/api/photos/${photoId}/restore_photo/`,
@@ -238,13 +258,13 @@ $(document).ready(function() {
 
 
     commentForm.on('submit', function(e) {
-        e.preventDefault(); // Предотвращаем стандартную отправку формы
-        
+        e.preventDefault();
+
         const formData = {
             text: commentForm.find('textarea[name="text"]').val(),
             photo: photoId
         };
-        
+
         $.ajax({
             url: '/api/comments/',
             method: 'POST',
@@ -252,9 +272,7 @@ $(document).ready(function() {
             data: JSON.stringify(formData),
             headers: getAuthHeaders(),
             success: function() {
-                // Очищаем поле ввода
                 commentForm.find('textarea').val('');
-                // Обновляем список комментариев
                 loadInitialComments();
             },
             error: function(xhr) {
@@ -264,7 +282,6 @@ $(document).ready(function() {
     });
 
 
-    // Система комментариев
     function loadInitialComments() {
         return new Promise((resolve, reject) => {
             $.get(`/api/comments/?photo=${photoId}`)
@@ -309,7 +326,7 @@ $(document).ready(function() {
     function buildCommentHTML(comment, allComments, level = 0) {
         const replies = allComments.filter(c => c.parent === comment.id);
         const repliesVisible = localStorage.getItem(`repliesVisible-${comment.id}`) === 'true';
-        
+
         let html = `
         <li id="comment-${comment.id}" style="margin-left: ${level * 30}px; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px;">
             <div>
@@ -444,92 +461,80 @@ $(document).ready(function() {
         });
     });
 
+    $('#show-all-comments-button').on('click', function() {
+        loadAllComments();
+    });
 
-    // Обработчик для кнопки "Показать все комментарии"
-$('#show-all-comments-button').on('click', function() {
-    loadAllComments();
-});
+    $('#hide-all-comments-button').on('click', function() {
+        loadInitialComments();
+        hideAllCommentsButton.hide();
+        showAllCommentsButton.show();
+    });
 
-// Обработчик для кнопки "Скрыть все комментарии"
-$('#hide-all-comments-button').on('click', function() {
-    loadInitialComments();
-    hideAllCommentsButton.hide();
-    showAllCommentsButton.show();
-});
+    $(document).on('click', '.toggle-replies-button', function() {
+        const commentId = $(this).data('comment-id');
+        const repliesContainer = $(`#replies-${commentId}`);
+        const isVisible = repliesContainer.is(':visible');
 
-// Обработчик для кнопок "Показать/Скрыть ответы"
-$(document).on('click', '.toggle-replies-button', function() {
-    const commentId = $(this).data('comment-id');
-    const repliesContainer = $(`#replies-${commentId}`);
-    const isVisible = repliesContainer.is(':visible');
-    
-    // Переключаем видимость
-    repliesContainer.toggle();
-    
-    // Меняем текст кнопки
-    $(this).text(isVisible ? 'Показать ответы' : 'Скрыть ответы');
-    
-    // Сохраняем состояние в localStorage
-    localStorage.setItem(`repliesVisible-${commentId}`, !isVisible);
-});
+        repliesContainer.toggle();
 
+        $(this).text(isVisible ? 'Показать ответы' : 'Скрыть ответы');
 
-    // Лайки
-    $('#like-button').click(function() {
-        $.ajax({
-            url: '/api/votes/',
-            method: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify({ photo: photoId }),
-            headers: getAuthHeaders(),
-            success: function(response) {
-                // Обновляем состояние кнопок сразу, не дожидаясь загрузки
-                updateLikeButtons(true, response.id);
-                loadPhotoDetails().then(() => {
-                    //showToast('Лайк поставлен!');
-                });
-            },
-            error: function(xhr) {
-                if (xhr.status === 400 && xhr.responseJSON.vote_id) {
-                    updateLikeButtons(true, xhr.responseJSON.vote_id);
-                    showToast('Вы уже лайкали эту фотографию', 'info');
-                } else {
-                    const errorMsg = xhr.responseJSON?.detail || 'Ошибка при постановке лайка';
-                    showToast(errorMsg, 'error');
-                    loadPhotoDetails(); // Обновляем состояние в случае ошибки
-                }
-            }
-        });
+        localStorage.setItem(`repliesVisible-${commentId}`, !isVisible);
     });
     
-    $('#unlike-button').click(function() {
-        const voteId = $(this).data('vote-id');
-        console.log('Trying to unlike with voteId:', voteId);
-        if (!voteId) {
-            console.error("voteId не определен");
-            showToast("Ошибка: Не удалось удалить лайк.", "error");
+    $('#like-button').click(async function() {
+        if (!currentUserId) {
+            showToast("Для оценки необходимо авторизоваться", "error");
             return;
         }
-    
-        $.ajax({
-            url: `/api/votes/${voteId}/`,
-            method: 'DELETE',
-            headers: getAuthHeaders(),
-            success: function() {
-                // Обновляем состояние кнопок сразу
-                updateLikeButtons(false);
-                loadPhotoDetails().then(() => {
-                    //showToast('Лайк удален!');
-                });
-            },
-            error: function(xhr) {
-                const errorMsg = xhr.responseJSON?.detail || 'Ошибка при удалении лайка';
+
+        try {
+            const response = await $.ajax({
+                url: '/api/votes/',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ photo: photoId }),
+                headers: getAuthHeaders()
+            });
+            
+            // After successful like, immediately update the state
+            updateLikeButtons(true);
+            await loadPhotoDetails(); // To update the counter and has_liked state
+
+        } catch (xhr) {
+            if (xhr.status === 400 && xhr.responseJSON.vote_id) {
+                updateLikeButtons(true);
+                showToast('Вы уже лайкали эту фотографию', 'info');
+            } else {
+                const errorMsg = xhr.responseJSON?.detail || 'Ошибка при постановке лайка';
                 showToast(errorMsg, 'error');
-                loadPhotoDetails(); // Обновляем состояние в случае ошибки
             }
-        });
+        }
     });
-    // Редактирование фотографии
+
+    $('#unlike-button').click(async function() {
+        if (!currentUserId) {
+            showToast("Для оценки необходимо авторизоваться", "error");
+            return;
+        }
+
+        try {
+            await $.ajax({
+                url: `/api/votes/by-photo/${photoId}/`,
+                method: 'DELETE',
+                headers: getAuthHeaders()
+            });
+            
+            // After successful unlike, immediately update the state
+            updateLikeButtons(false);
+            await loadPhotoDetails(); // To update the counter and has_liked state
+        } catch (xhr) {
+            const errorMsg = xhr.responseJSON?.detail || 'Ошибка при удалении лайка';
+            showToast(errorMsg, 'error');
+        }
+    });
+
     $('#edit-photo-button').click(function() {
         $('#edit-photo-form').toggle();
     });
@@ -558,16 +563,46 @@ $(document).on('click', '.toggle-replies-button', function() {
         });
     });
 
-    // Инициализация
+    // Function to initialize like buttons
+    function initializeLikeButtons() {
+        console.log("Initializing like buttons...");
+        if (currentUserId !== null) {
+            console.log("Current user ID:", currentUserId);
+            $.ajax({
+                url: `/api/photos/${photoId}/`,
+                method: 'GET',
+                headers: getAuthHeaders(),
+                success: function(photo) {
+                    console.log("Photo details loaded for like button init:", photo.has_liked);
+                    updateLikeButtons(photo.has_liked);
+                },
+                error: function(xhr) {
+                    console.error("Error loading photo details for like button init:", xhr);
+                    // Handle error, potentially hide the buttons or show an error message
+                }
+            });
+        } else {
+            console.log("User not authenticated, hiding like buttons.");
+            updateLikeButtons(false); // Ensure buttons are hidden if not logged in
+        }
+    }
+
     checkAuth()
-        .then(function(isAuthenticated) {
-            updateAuthUI(isAuthenticated);
-            return loadPhotoDetails();
-        })
-        .then(function() {
-            return loadInitialComments();
-        })
-        .catch(function(error) {
-            console.error("Ошибка при инициализации:", error);
-        });
+    .then(function(authData) {
+        console.log("Auth completed, user ID:", authData.user_id);
+        currentUserId = authData.user_id;
+        return new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
+    })
+    .then(function() {
+        return loadPhotoDetails();
+    })
+    .then(function(photo) {
+        console.log("Photo details loaded, has_liked:", photo.has_liked);
+        initializeLikeButtons(); // Initialize like buttons after loading photo details
+        return loadInitialComments();
+    })
+    .catch(function(error) {
+        console.error("Initialization error:", error);
+        handleAuthError();
+    });
 });

@@ -11,11 +11,78 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link rel="stylesheet" href="{% static 'css/styles.css' %}">
 
+    <!-- Стили для уведомлений -->
+    <style>
+        .notification-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            max-width: 350px;
+            width: 100%;
+        }
+        
+        .notification {
+            position: relative;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            background: #fff;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-left: 4px solid #007bff;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .notification.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        
+        .notification.success {
+            border-left-color: #28a745;
+        }
+        
+        .notification.error {
+            border-left-color: #dc3545;
+        }
+        
+        .notification.warning {
+            border-left-color: #ffc107;
+        }
+        
+        .notification .close {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            cursor: pointer;
+            opacity: 0.5;
+            font-size: 1.2rem;
+            line-height: 1;
+        }
+        
+        .notification .close:hover {
+            opacity: 1;
+        }
+        
+        .notification small {
+            display: block;
+            margin-top: 5px;
+            color: #6c757d;
+            font-size: 0.8rem;
+        }
+    </style>
+
     <!-- Скрипты -->
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 </head>
 
 <body class="bg-light">
+    <!-- Контейнер для уведомлений -->
+    <div class="notification-container" id="notification-container"></div>
+
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
             <a class="navbar-brand" href="{% url 'galery:home' %}">Фотогалерея</a>
@@ -52,6 +119,123 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Глобальный объект для управления уведомлениями
+        const NotificationManager = {
+            init: function() {
+                this.setupWebSocket();
+            },
+            
+            setupWebSocket: function() {
+                checkAuth().then(result => {
+                    if (result.authenticated) {
+                        this._connectWebSocket();
+                        this.updateUnreadCount();
+                    }
+                });
+            },
+            
+            _connectWebSocket: function() {
+                const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+                const socket = new WebSocket(protocol + window.location.host + '/ws/notifications/');
+                
+                socket.onmessage = (e) => {
+                    const data = JSON.parse(e.data);
+                    this.showNotification(data.notification);
+                    this.updateUnreadCount();
+                };
+                
+                socket.onopen = (e) => console.log("WebSocket соединение установлено");
+                socket.onclose = (e) => {
+                    console.log("WebSocket соединение закрыто, попытка переподключения...");
+                    setTimeout(() => this._connectWebSocket(), 5000);
+                };
+                socket.onerror = (e) => console.error("Ошибка WebSocket:", e);
+            },
+            
+            showNotification: function(notification) {
+                const container = document.getElementById('notification-container');
+                if (!container) return;
+                
+                let icon = 'bi-info-circle';
+                if (notification.notification_type === 'comment') icon = 'bi-chat';
+                if (notification.notification_type === 'like') icon = 'bi-heart';
+                if (notification.notification_type === 'reply') icon = 'bi-reply';
+                
+                const notificationEl = document.createElement('div');
+                notificationEl.className = 'notification';
+                notificationEl.innerHTML = `
+                    <span class="close" onclick="event.stopPropagation(); this.parentElement.remove()">×</span>
+                    <div><i class="bi ${icon} me-2"></i>${notification.message}</div>
+                    <small>${new Date(notification.created_at).toLocaleString()}</small>
+                `;
+                
+                notificationEl.addEventListener('click', () => {
+                    this.markNotificationAsRead(notification.id);
+                    if (notification.notification_type === 'comment' || notification.notification_type === 'reply') {
+                        window.location.href = `/photos/${notification.related_id || ''}`;
+                    }
+                });
+                
+                container.appendChild(notificationEl);
+                
+                setTimeout(() => {
+                    notificationEl.classList.add('show');
+                }, 10);
+                
+                setTimeout(() => {
+                    notificationEl.classList.remove('show');
+                    setTimeout(() => {
+                        notificationEl.remove();
+                    }, 300);
+                }, 5000);
+            },
+            
+            markNotificationAsRead: async function(notificationId) {
+                try {
+                    await fetch(`/notification/${notificationId}/mark_as_read/`, {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken'),
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                        }
+                    });
+                    this.updateUnreadCount();
+                } catch (error) {
+                    console.error("Ошибка при отметке уведомления как прочитанного:", error);
+                }
+            },
+            
+            updateUnreadCount: async function() {
+                try {
+                    const response = await fetch('/api/unread_count/', {
+                        method: 'GET',
+                        credentials: 'include',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Failed to get unread count');
+                    }
+
+                    const data = await response.json();
+                    const badge = document.getElementById('unread-count');
+                    if (badge) {
+                        badge.textContent = data.count;
+                        badge.style.display = data.count > 0 ? 'block' : 'none';
+                    }
+                } catch (error) {
+                    console.error('Error updating unread count:', error);
+                    const badge = document.getElementById('unread-count');
+                    if (badge) badge.style.display = 'none';
+                }
+            }
+        };
+
         // Глобальный флаг для отслеживания состояния аутентификации
         let authChecked = false;
 
@@ -83,8 +267,10 @@
                     console.log('User authenticated');
                     authLinks.html(`
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'notification:notification_list' %}">
+                            <a class="nav-link position-relative" href="{% url 'notification:notification_list' %}">
                                 <i class="bi bi-bell"></i> Уведомления
+                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" 
+                                      id="unread-count" style="display: none;">0</span>
                             </a>
                         </li>
                         <li class="nav-item">
@@ -92,9 +278,9 @@
                                 <i class="bi bi-person"></i> Профиль
                             </a>
                         </li>
-                         <li class="nav-item">
+                        <li class="nav-item">
                             <a class="nav-link" href="{% url 'galery:home' %}">
-                                <i class="bi bi-person"></i> Главная
+                                <i class="bi bi-house"></i> Главная
                             </a>
                         </li>
                         <li class="nav-item">
@@ -103,6 +289,7 @@
                             </button>
                         </li>
                     `);
+                    NotificationManager.updateUnreadCount();
                 } else {
                     console.log('User not authenticated');
                     authLinks.html(`
@@ -150,7 +337,12 @@
             const parts = value.split(`; ${name}=`);
             if (parts.length === 2) return parts.pop().split(';').shift();
         }
-        updateAuthUI();
+
+        // Инициализация при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            updateAuthUI();
+            NotificationManager.init();
+        });
     </script>
 
     {% block extra_scripts %}{% endblock %}
